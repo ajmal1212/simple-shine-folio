@@ -32,53 +32,113 @@ export class WhatsAppAPI {
     }
   }
 
-  async uploadMediaForTemplate(file: File): Promise<string> {
+  // New method for template media upload - Step 1: Create upload session
+  async createMediaUploadSession(file: File): Promise<string> {
     if (!this.settings) {
       await this.loadSettings();
     }
 
-    if (!this.settings?.phone_number_id) {
-      throw new Error('Phone Number ID not configured');
+    if (!this.settings?.app_id) {
+      throw new Error('App ID not configured');
     }
 
     try {
-      console.log('📤 Uploading media for template using PHONE_NUMBER_ID...');
+      console.log('📤 Creating media upload session for template...');
       
-      // Try PHONE_NUMBER_ID first - this is the standard endpoint for media uploads
-      const url = `${this.settings.graph_api_base_url}/${this.settings.api_version}/${this.settings.phone_number_id}/media`;
+      const url = `${this.settings.graph_api_base_url}/${this.settings.api_version}/${this.settings.app_id}/uploads`;
       
       const formData = new FormData();
-      formData.append('file', file);
-      formData.append('type', this.getMediaType(file.type));
-      formData.append('messaging_product', 'whatsapp');
+      formData.append('file_name', file.name);
+      formData.append('file_length', file.size.toString());
+      formData.append('file_type', file.type);
+      formData.append('access_token', this.settings.access_token);
 
-      console.log('Uploading to URL:', url);
-      console.log('File details:', { name: file.name, type: file.type, size: file.size });
+      console.log('Creating upload session:', { 
+        name: file.name, 
+        size: file.size, 
+        type: file.type 
+      });
 
       const response = await fetch(url, {
         method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${this.settings.access_token}`,
-        },
         body: formData
       });
 
       const result = await response.json();
-      console.log('Upload response:', result);
+      console.log('Upload session response:', result);
       
       if (result.error) {
-        console.error('❌ Media upload error:', result.error);
-        throw new Error(`Media upload error: ${result.error.message}`);
+        console.error('❌ Upload session creation error:', result.error);
+        throw new Error(`Upload session error: ${result.error.message}`);
       }
 
       if (!result.id) {
-        throw new Error('No media ID returned from WhatsApp API');
+        throw new Error('No upload session ID returned');
       }
 
-      console.log('✅ Media uploaded successfully, media_id:', result.id);
+      console.log('✅ Upload session created successfully, session_id:', result.id);
       return result.id;
     } catch (error) {
-      console.error('❌ Media upload failed:', error);
+      console.error('❌ Upload session creation failed:', error);
+      throw error;
+    }
+  }
+
+  // New method for template media upload - Step 2: Upload file content
+  async uploadFileContent(uploadSessionId: string, file: File): Promise<string> {
+    if (!this.settings) {
+      await this.loadSettings();
+    }
+
+    try {
+      console.log('📤 Uploading file content to session:', uploadSessionId);
+      
+      const url = `${this.settings.graph_api_base_url}/${this.settings.api_version}/${uploadSessionId}`;
+      
+      const response = await fetch(url, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${this.settings.access_token}`,
+          'file_offset': '0'
+        },
+        body: file
+      });
+
+      const result = await response.json();
+      console.log('File upload response:', result);
+      
+      if (result.error) {
+        console.error('❌ File upload error:', result.error);
+        throw new Error(`File upload error: ${result.error.message}`);
+      }
+
+      if (!result.h) {
+        throw new Error('No media handle returned from file upload');
+      }
+
+      console.log('✅ File uploaded successfully, media_handle:', result.h);
+      return result.h;
+    } catch (error) {
+      console.error('❌ File upload failed:', error);
+      throw error;
+    }
+  }
+
+  // Combined method for template media upload
+  async uploadMediaForTemplate(file: File): Promise<string> {
+    try {
+      console.log('📤 Starting template media upload process...');
+      
+      // Step 1: Create upload session
+      const uploadSessionId = await this.createMediaUploadSession(file);
+      
+      // Step 2: Upload file content and get media handle
+      const mediaHandle = await this.uploadFileContent(uploadSessionId, file);
+      
+      console.log('✅ Template media upload completed, media_handle:', mediaHandle);
+      return mediaHandle;
+    } catch (error) {
+      console.error('❌ Template media upload failed:', error);
       throw error;
     }
   }
@@ -475,7 +535,7 @@ export class WhatsAppAPI {
       components: []
     };
 
-    // Add header component with proper media handling
+    // Add header component with proper media handling using the new upload flow
     if (template.header_type && template.header_type !== 'NONE' && template.header_content) {
       const headerComponent: any = {
         type: 'HEADER',
@@ -493,30 +553,30 @@ export class WhatsAppAPI {
           };
         }
       } else if (template.header_type === 'IMAGE' || template.header_type === 'DOCUMENT' || template.header_type === 'VIDEO') {
-        // For media headers, upload file and get media_id
+        // For media headers, upload file using the new flow and get media handle
         if (template.header_media_file && template.header_media_file instanceof File) {
           try {
-            console.log('📤 Uploading media file for header...');
-            const mediaId = await this.uploadMediaForTemplate(template.header_media_file);
+            console.log('📤 Uploading media file for header using new flow...');
+            const mediaHandle = await this.uploadMediaForTemplate(template.header_media_file);
             
-            // Use the correct format for media in template as per documentation
+            // Use the media handle in the template
             headerComponent.example = {
-              header_handle: [mediaId]
+              header_handle: [mediaHandle]
             };
             
-            console.log('✅ Media uploaded successfully, media_id:', mediaId);
+            console.log('✅ Media uploaded successfully, media_handle:', mediaHandle);
           } catch (error) {
             console.error('❌ Failed to upload media for header:', error);
             throw new Error(`Failed to upload header media: ${error instanceof Error ? error.message : 'Unknown error'}`);
           }
         } else if (template.header_content && !template.header_content.startsWith('blob:')) {
-          // If it's already a media URL/ID, use it directly
+          // If it's already a media handle/URL, use it directly
           headerComponent.example = {
             header_handle: [template.header_content]
           };
         } else {
           // Skip media header if no valid media is provided
-          console.warn('⚠️ Skipping media header - no valid media file or URL provided');
+          console.warn('⚠️ Skipping media header - no valid media file or handle provided');
         }
       }
 
@@ -566,6 +626,13 @@ export class WhatsAppAPI {
           switch (btn.type) {
             case 'URL':
               button.url = btn.url;
+              // Add URL variable example if it contains variables
+              if (btn.url && btn.url.includes('{{')) {
+                const urlVariables = btn.url.match(/\{\{\d+\}\}/g);
+                if (urlVariables && template.variables) {
+                  button.example = [template.variables[urlVariables.length - 1]?.sample || 'example'];
+                }
+              }
               break;
             case 'PHONE_NUMBER':
               button.phone_number = btn.phone_number;
