@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { Save, ArrowLeft, AlertCircle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -44,6 +43,7 @@ export const TemplateBuilder: React.FC<TemplateBuilderProps> = ({ onSave, onCanc
   const [uploadStatus, setUploadStatus] = useState<string>('');
   const [isUploading, setIsUploading] = useState(false);
   const [uploadError, setUploadError] = useState<string>('');
+  const [uploadSessionId, setUploadSessionId] = useState<string>('');
 
   useEffect(() => {
     if (editTemplate) {
@@ -66,6 +66,7 @@ export const TemplateBuilder: React.FC<TemplateBuilderProps> = ({ onSave, onCanc
   const handleMediaUpload = async (file: File) => {
     setIsUploading(true);
     setUploadError('');
+    setUploadSessionId('');
     setUploadStatus('Validating file...');
     
     try {
@@ -84,6 +85,7 @@ export const TemplateBuilder: React.FC<TemplateBuilderProps> = ({ onSave, onCanc
       setUploadStatus('Step 1/2: Creating upload session...');
       const sessionId = await whatsappApi.createMediaUploadSession(file);
       console.log('Upload session created:', sessionId);
+      setUploadSessionId(sessionId);
       setUploadStatus('Step 1/2: Upload session created ✓');
       
       // Brief delay to show progress
@@ -112,10 +114,82 @@ export const TemplateBuilder: React.FC<TemplateBuilderProps> = ({ onSave, onCanc
     } catch (error) {
       console.error('Media upload failed:', error);
       const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
-      setUploadError(errorMessage);
-      setUploadStatus('Upload failed');
+      
+      // Check if we can resume the upload
+      if (uploadSessionId && errorMessage.includes('Network error')) {
+        setUploadStatus('Upload interrupted. You can try to resume...');
+        setUploadError(`${errorMessage} - Session ID: ${uploadSessionId}`);
+      } else {
+        setUploadError(errorMessage);
+        setUploadStatus('Upload failed');
+      }
+      
       toast({
         title: "Upload Failed",
+        description: errorMessage,
+        variant: "destructive"
+      });
+    } finally {
+      setIsUploading(false);
+    }
+  };
+
+  const handleResumeUpload = async () => {
+    if (!uploadSessionId || !template.header_media_file) {
+      toast({
+        title: "Error",
+        description: "No upload session to resume",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    setIsUploading(true);
+    setUploadError('');
+    
+    try {
+      setUploadStatus('Checking upload status...');
+      const fileOffset = await whatsappApi.resumeUpload(uploadSessionId);
+      
+      if (fileOffset === 0) {
+        setUploadStatus('Restarting upload from beginning...');
+        const mediaHandle = await whatsappApi.uploadFileContent(uploadSessionId, template.header_media_file);
+        
+        setTemplate(prev => ({
+          ...prev,
+          header_handle: mediaHandle
+        }));
+        
+        setUploadStatus('Upload completed! Media handle generated.');
+        toast({
+          title: "Success",
+          description: "Upload resumed and completed successfully",
+        });
+      } else {
+        setUploadStatus(`Resuming upload from ${fileOffset} bytes...`);
+        const mediaHandle = await whatsappApi.resumeFileUpload(uploadSessionId, template.header_media_file, fileOffset);
+        
+        setTemplate(prev => ({
+          ...prev,
+          header_handle: mediaHandle
+        }));
+        
+        setUploadStatus('Upload resumed and completed! Media handle generated.');
+        toast({
+          title: "Success",
+          description: "Upload resumed and completed successfully",
+        });
+      }
+      
+      setUploadSessionId('');
+    } catch (error) {
+      console.error('Resume upload failed:', error);
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
+      setUploadError(errorMessage);
+      setUploadStatus('Resume failed');
+      
+      toast({
+        title: "Resume Failed",
         description: errorMessage,
         variant: "destructive"
       });
@@ -445,17 +519,32 @@ export const TemplateBuilder: React.FC<TemplateBuilderProps> = ({ onSave, onCanc
                           {/* Upload Status */}
                           {uploadStatus && (
                             <div className="p-3 bg-gray-50 rounded-lg">
-                              <div className="flex items-center space-x-2">
-                                {isUploading && (
-                                  <div className="w-4 h-4 border-2 border-blue-600 border-t-transparent rounded-full animate-spin"></div>
+                              <div className="flex items-center justify-between">
+                                <div className="flex items-center space-x-2">
+                                  {isUploading && (
+                                    <div className="w-4 h-4 border-2 border-blue-600 border-t-transparent rounded-full animate-spin"></div>
+                                  )}
+                                  <p className={`text-sm ${
+                                    uploadError ? 'text-red-600' : 
+                                    uploadStatus.includes('✓') ? 'text-green-600' : 
+                                    'text-blue-600'
+                                  }`}>
+                                    {uploadStatus}
+                                  </p>
+                                </div>
+                                
+                                {/* Resume Upload Button */}
+                                {uploadSessionId && uploadError && (
+                                  <Button
+                                    size="sm"
+                                    variant="outline"
+                                    onClick={handleResumeUpload}
+                                    disabled={isUploading}
+                                    className="text-xs"
+                                  >
+                                    Resume Upload
+                                  </Button>
                                 )}
-                                <p className={`text-sm ${
-                                  uploadError ? 'text-red-600' : 
-                                  uploadStatus.includes('✓') ? 'text-green-600' : 
-                                  'text-blue-600'
-                                }`}>
-                                  {uploadStatus}
-                                </p>
                               </div>
                             </div>
                           )}
@@ -486,7 +575,7 @@ export const TemplateBuilder: React.FC<TemplateBuilderProps> = ({ onSave, onCanc
                           {template.header_handle && (
                             <div className="p-4 bg-green-50 border border-green-200 rounded-lg">
                               <Label className="text-sm font-medium text-green-800">Header Handle (Ready for WhatsApp):</Label>
-                              <div className="mt-2 p-3 bg-white border rounded text-xs font-mono break-all text-green-700 max-h-20 overflow-y-auto">
+                              <div className="mt-2 p-3 bg-white border rounded text-xs font-mono break-all text-green-700 max-h-32 overflow-y-auto">
                                 {template.header_handle}
                               </div>
                               <p className="text-xs text-green-600 mt-2">✅ Media uploaded successfully and ready for template submission</p>

@@ -27,6 +27,14 @@ export class WhatsAppAPI {
     return await whatsappMediaUpload.uploadMedia(file, type);
   }
 
+  async resumeUpload(uploadSessionId: string): Promise<number> {
+    return await whatsappMediaUpload.resumeUpload(uploadSessionId);
+  }
+
+  async resumeFileUpload(uploadSessionId: string, file: File, fileOffset: number): Promise<string> {
+    return await whatsappMediaUpload.resumeFileUpload(uploadSessionId, file, fileOffset);
+  }
+
   // Template methods
   async syncTemplatesFromWhatsApp(): Promise<any> {
     return await whatsappTemplates.syncTemplatesFromWhatsApp();

@@ -17,24 +17,13 @@ export class WhatsAppMediaUpload {
     try {
       console.log('📤 Creating media upload session for template...');
       
-      const url = `${updatedSettings.graph_api_base_url}/${updatedSettings.api_version}/${updatedSettings.app_id}/uploads`;
-      
-      const formData = new FormData();
-      formData.append('file_name', file.name);
-      formData.append('file_length', file.size.toString());
-      formData.append('file_type', file.type);
-      formData.append('access_token', updatedSettings.access_token);
+      // Use query parameters as specified in the documentation
+      const url = `${updatedSettings.graph_api_base_url}/${updatedSettings.api_version}/${updatedSettings.app_id}/uploads?file_name=${encodeURIComponent(file.name)}&file_length=${file.size}&file_type=${encodeURIComponent(file.type)}&access_token=${updatedSettings.access_token}`;
 
-      console.log('Creating upload session with data:', { 
-        url,
-        name: file.name, 
-        size: file.size, 
-        type: file.type 
-      });
+      console.log('Creating upload session with URL:', url);
 
       const response = await fetch(url, {
-        method: 'POST',
-        body: formData
+        method: 'POST'
       });
 
       if (!response.ok) {
@@ -80,20 +69,20 @@ export class WhatsAppMediaUpload {
     try {
       console.log('📤 Uploading file content to session:', uploadSessionId);
       
-      // The uploadSessionId contains the full URL path after the API version
+      // Construct the upload URL exactly as specified in the documentation
       const uploadUrl = `${updatedSettings.graph_api_base_url}/${updatedSettings.api_version}/${uploadSessionId}`;
       
       console.log('Upload URL:', uploadUrl);
       
-      // Use proper headers for file upload
+      // Use exact headers as specified in the documentation
       const headers = new Headers();
-      headers.append('Authorization', `Bearer ${updatedSettings.access_token}`);
+      headers.append('Authorization', `OAuth ${updatedSettings.access_token}`); // Use OAuth prefix, not Bearer
       headers.append('file_offset', '0');
 
       const response = await fetch(uploadUrl, {
         method: 'POST',
         headers: headers,
-        body: file
+        body: file // Send the file directly as binary data
       });
 
       if (!response.ok) {
@@ -191,11 +180,105 @@ export class WhatsAppMediaUpload {
     throw new Error('Failed to upload media');
   }
 
-  private getMediaType(mimeType: string): string {
-    if (mimeType.startsWith('image/')) return 'image';
-    if (mimeType.startsWith('video/')) return 'video';
-    if (mimeType.startsWith('audio/')) return 'audio';
-    return 'document';
+  async resumeUpload(uploadSessionId: string): Promise<number> {
+    const settings = whatsappConfig.getSettings();
+    if (!settings) {
+      await whatsappConfig.loadSettings();
+    }
+
+    const updatedSettings = whatsappConfig.getSettings();
+    if (!updatedSettings) {
+      throw new Error('WhatsApp settings not loaded');
+    }
+
+    try {
+      console.log('🔄 Checking upload session status:', uploadSessionId);
+      
+      const url = `${updatedSettings.graph_api_base_url}/${updatedSettings.api_version}/${uploadSessionId}`;
+      
+      const response = await fetch(url, {
+        method: 'GET',
+        headers: {
+          'Authorization': `OAuth ${updatedSettings.access_token}`
+        }
+      });
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error('❌ Resume upload HTTP error:', response.status, errorText);
+        throw new Error(`HTTP ${response.status}: ${errorText}`);
+      }
+
+      const result = await response.json();
+      console.log('Resume upload response:', result);
+      
+      if (result.error) {
+        console.error('❌ Resume upload error:', result.error);
+        throw new Error(`Resume upload error: ${result.error.message || JSON.stringify(result.error)}`);
+      }
+
+      const fileOffset = parseInt(result.file_offset || '0');
+      console.log('✅ Upload can be resumed from offset:', fileOffset);
+      return fileOffset;
+    } catch (error) {
+      console.error('❌ Resume upload failed:', error);
+      throw error;
+    }
+  }
+
+  async resumeFileUpload(uploadSessionId: string, file: File, fileOffset: number): Promise<string> {
+    const settings = whatsappConfig.getSettings();
+    if (!settings) {
+      await whatsappConfig.loadSettings();
+    }
+
+    const updatedSettings = whatsappConfig.getSettings();
+    if (!updatedSettings) {
+      throw new Error('WhatsApp settings not loaded');
+    }
+
+    try {
+      console.log('📤 Resuming file upload from offset:', fileOffset);
+      
+      const uploadUrl = `${updatedSettings.graph_api_base_url}/${updatedSettings.api_version}/${uploadSessionId}`;
+      
+      // Create a slice of the file starting from the offset
+      const fileSlice = file.slice(fileOffset);
+      
+      const headers = new Headers();
+      headers.append('Authorization', `OAuth ${updatedSettings.access_token}`);
+      headers.append('file_offset', fileOffset.toString());
+
+      const response = await fetch(uploadUrl, {
+        method: 'POST',
+        headers: headers,
+        body: fileSlice
+      });
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error('❌ Resume file upload HTTP error:', response.status, errorText);
+        throw new Error(`HTTP ${response.status}: ${errorText}`);
+      }
+
+      const result = await response.json();
+      console.log('Resume file upload response:', result);
+      
+      if (result.error) {
+        console.error('❌ Resume file upload error:', result.error);
+        throw new Error(`Resume file upload error: ${result.error.message || JSON.stringify(result.error)}`);
+      }
+
+      if (!result.h) {
+        throw new Error('No media handle returned from resumed file upload');
+      }
+
+      console.log('✅ File upload resumed successfully, media_handle:', result.h);
+      return result.h;
+    } catch (error) {
+      console.error('❌ Resume file upload failed:', error);
+      throw error;
+    }
   }
 }
 
