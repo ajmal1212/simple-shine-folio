@@ -180,6 +180,7 @@ const Templates = () => {
               const { error: insertError } = await supabase
                 .from('whatsapp_templates')
                 .insert({
+                  user_id: user.id,
                   name: template.name,
                   category: template.category || 'MARKETING',
                   language: template.language || 'en_US',
