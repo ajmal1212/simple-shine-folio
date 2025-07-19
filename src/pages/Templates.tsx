@@ -104,18 +104,34 @@ const Templates = () => {
       
       if (result.data && Array.isArray(result.data)) {
         let syncedCount = 0;
+        let updatedCount = 0;
         
         for (const template of result.data) {
           try {
             // Check if template already exists
             const { data: existingTemplate } = await supabase
               .from('whatsapp_templates')
-              .select('id')
+              .select('id, status')
               .eq('whatsapp_template_id', template.id)
               .single();
 
-            if (!existingTemplate) {
-              // Parse template components
+            if (existingTemplate) {
+              // Update existing template status if it has changed
+              if (existingTemplate.status !== template.status) {
+                const { error: updateError } = await supabase
+                  .from('whatsapp_templates')
+                  .update({ 
+                    status: template.status || 'APPROVED'
+                  })
+                  .eq('id', existingTemplate.id);
+
+                if (!updateError) {
+                  updatedCount++;
+                  console.log(`Updated template status: ${template.name} -> ${template.status}`);
+                }
+              }
+            } else {
+              // Parse template components for new templates
               let headerType = 'NONE';
               let headerContent = '';
               let bodyText = '';
@@ -206,16 +222,20 @@ const Templates = () => {
           }
         }
 
+        const message = [];
+        if (syncedCount > 0) message.push(`${syncedCount} new templates synced`);
+        if (updatedCount > 0) message.push(`${updatedCount} templates updated`);
+        
         toast({
           title: "Success",
-          description: `Synced ${syncedCount} new templates from WhatsApp`,
+          description: message.length > 0 ? message.join(', ') : "Templates are up to date",
         });
         
         loadTemplates();
       } else {
         toast({
           title: "Info",
-          description: "No new templates found to sync",
+          description: "No templates found to sync",
         });
       }
     } catch (error) {

@@ -99,8 +99,11 @@ const CreateCampaign = () => {
 
   const parseCsv = (csvText: string) => {
     const lines = csvText.trim().split('\n');
-    const headers = lines[0].split(',').map(h => h.trim());
+    const headers = lines[0].split(',').map(h => h.trim().replace(/"/g, ''));
     
+    console.log('CSV Headers:', headers);
+    console.log('Template Variables:', variables);
+
     const phoneIndex = headers.findIndex(h => 
       h.toLowerCase().includes('phone') || 
       h.toLowerCase().includes('mobile') || 
@@ -119,21 +122,21 @@ const CreateCampaign = () => {
     const parsedContacts: Contact[] = [];
     
     for (let i = 1; i < lines.length; i++) {
-      const values = lines[i].split(',').map(v => v.trim());
-      if (values.length === headers.length && values[phoneIndex]) {
+      const values = lines[i].split(',').map(v => v.trim().replace(/"/g, ''));
+      if (values.length >= headers.length && values[phoneIndex]) {
         const contact: Contact = {
           phone_number: values[phoneIndex],
           variables: {}
         };
 
         // Map variables from CSV columns to template variables
-        variables.forEach(variable => {
-          const variableNumber = variable.replace(/[{}]/g, '');
-          const columnName = `var${variableNumber}`;
-          const columnIndex = headers.findIndex(h => h.toLowerCase() === columnName.toLowerCase());
+        variables.forEach((templateVar, index) => {
+          // Look for var1, var2, var3, etc. columns in CSV
+          const varColumnName = `var${index + 1}`;
+          const varColumnIndex = headers.findIndex(h => h.toLowerCase() === varColumnName.toLowerCase());
           
-          if (columnIndex !== -1 && values[columnIndex]) {
-            contact.variables![variable] = values[columnIndex];
+          if (varColumnIndex !== -1 && values[varColumnIndex]) {
+            contact.variables![templateVar] = values[varColumnIndex];
           }
         });
 
@@ -141,6 +144,7 @@ const CreateCampaign = () => {
       }
     }
 
+    console.log('Parsed Contacts:', parsedContacts);
     setContacts(parsedContacts);
     toast({
       title: "Success",
@@ -515,10 +519,15 @@ const CreateCampaign = () => {
                           <li>• <code>phone</code> or <code>mobile</code> or <code>number</code> - Phone numbers</li>
                           {variables.map((variable, index) => (
                             <li key={variable}>
-                              • <code>var{variable.replace(/[{}]/g, '')}</code> - Values for {variable}
+                              • <code>var{index + 1}</code> - Values for {variable}
                             </li>
                           ))}
                         </ul>
+                        <div className="mt-3 p-2 bg-blue-100 rounded text-xs">
+                          <strong>Example CSV format:</strong><br/>
+                          <code>"phone","var1","var2"</code><br/>
+                          <code>"916383625862","test1","test2"</code>
+                        </div>
                       </div>
                     )}
 
