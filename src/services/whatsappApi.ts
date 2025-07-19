@@ -32,94 +32,62 @@ export class WhatsAppAPI {
     }
   }
 
-  // Step 1: Get session ID for media upload
-  async getMediaUploadSession(file: File): Promise<string> {
-    if (!this.settings) {
-      await this.loadSettings();
-    }
-
-    if (!this.settings?.app_id) {
-      throw new Error('WhatsApp App ID not configured');
-    }
-
-    const url = `${this.settings.graph_api_base_url}/${this.settings.api_version}/${this.settings.app_id}/uploads`;
-    
-    const payload = {
-      file_length: file.size,
-      file_type: file.type,
-      messaging_product: 'whatsapp'
-    };
-
-    console.log('Step 1 - Getting upload session:', payload);
-
-    const response = await fetch(url, {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${this.settings.access_token}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify(payload)
-    });
-
-    const result = await response.json();
-    
-    if (result.error) {
-      throw new Error(`Media upload session error: ${result.error.message}`);
-    }
-
-    console.log('Step 1 - Upload session response:', result);
-    return result.id; // This is the session_id
-  }
-
-  // Step 2: Upload binary file using session ID
-  async uploadMediaBinary(sessionId: string, file: File): Promise<string> {
-    if (!this.settings) {
-      await this.loadSettings();
-    }
-
-    const url = `${this.settings.graph_api_base_url}/${this.settings.api_version}/${sessionId}`;
-    
-    console.log('Step 2 - Uploading binary file to session:', sessionId);
-
-    // Create FormData for binary upload
-    const formData = new FormData();
-    formData.append('file', file);
-
-    const response = await fetch(url, {
-      method: 'POST',
-      headers: {
-        // Note: Use OAuth format for binary upload, not Bearer
-        'Authorization': `OAuth ${this.settings.access_token}`,
-      },
-      body: formData
-    });
-
-    const result = await response.json();
-    
-    if (result.error) {
-      throw new Error(`Binary upload error: ${result.error.message}`);
-    }
-
-    console.log('Step 2 - Binary upload response:', result);
-    return result.h; // This is the media_id/handle
-  }
-
-  // Combined method to handle full media upload flow
+  // Updated media upload method that works with CORS restrictions
   async uploadMediaForTemplate(file: File): Promise<string> {
+    if (!this.settings) {
+      await this.loadSettings();
+    }
+
+    if (!this.settings?.phone_number_id) {
+      throw new Error('WhatsApp Phone Number ID not configured');
+    }
+
     try {
-      // Step 1: Get upload session
-      const sessionId = await this.getMediaUploadSession(file);
+      console.log('📤 Uploading media file via WhatsApp Cloud API...');
       
-      // Step 2: Upload binary file
-      const mediaId = await this.uploadMediaBinary(sessionId, file);
+      // Use the regular media upload endpoint instead of the resumable upload
+      const url = `${this.settings.graph_api_base_url}/${this.settings.api_version}/${this.settings.phone_number_id}/media`;
       
-      console.log('✅ Media upload complete. Media ID:', mediaId);
-      return mediaId;
+      const formData = new FormData();
+      formData.append('file', file);
+      formData.append('type', this.getMediaType(file.type));
+      formData.append('messaging_product', 'whatsapp');
+
+      const response = await fetch(url, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${this.settings.access_token}`,
+        },
+        body: formData
+      });
+
+      const result = await response.json();
+      
+      if (result.error) {
+        console.error('❌ Media upload error:', result.error);
+        throw new Error(`Media upload error: ${result.error.message}`);
+      }
+
+      if (result.id) {
+        console.log('✅ Media uploaded successfully, media_id:', result.id);
+        return result.id;
+      } else {
+        throw new Error('No media ID returned from WhatsApp API');
+      }
     } catch (error) {
-      console.error('Media upload failed:', error);
+      console.error('❌ Media upload failed:', error);
       throw error;
     }
   }
+
+  private getMediaType(mimeType: string): string {
+    if (mimeType.startsWith('image/')) return 'image';
+    if (mimeType.startsWith('video/')) return 'video';
+    if (mimeType.startsWith('audio/')) return 'audio';
+    return 'document';
+  }
+
+  // Remove the old upload session methods as they're causing CORS issues
 
   async syncTemplatesFromWhatsApp(): Promise<any> {
     if (!this.settings) {
@@ -457,14 +425,14 @@ export class WhatsAppAPI {
         // For media headers, we need to upload the file first and get media_id
         if (template.header_media_file && template.header_media_file instanceof File) {
           try {
-            console.log('Uploading media file for header...');
+            console.log('📤 Uploading media file for header...');
             const mediaId = await this.uploadMediaForTemplate(template.header_media_file);
             headerComponent.example = {
               header_handle: [mediaId]
             };
             console.log('✅ Media uploaded successfully, media_id:', mediaId);
           } catch (error) {
-            console.error('Failed to upload media for header:', error);
+            console.error('❌ Failed to upload media for header:', error);
             throw new Error(`Failed to upload header media: ${error instanceof Error ? error.message : 'Unknown error'}`);
           }
         } else if (template.header_content && !template.header_content.startsWith('blob:')) {
@@ -474,7 +442,7 @@ export class WhatsAppAPI {
           };
         } else {
           // Skip media header if no valid media is provided
-          console.warn('Skipping media header - no valid media file or URL provided');
+          console.warn('⚠️ Skipping media header - no valid media file or URL provided');
         }
       }
 
