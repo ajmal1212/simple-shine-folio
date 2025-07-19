@@ -32,20 +32,21 @@ export class WhatsAppAPI {
     }
   }
 
-  // Simplified media upload using standard WhatsApp Cloud API
+  // Fixed media upload using WABA_ID for template media
   async uploadMediaForTemplate(file: File): Promise<string> {
     if (!this.settings) {
       await this.loadSettings();
     }
 
-    if (!this.settings?.phone_number_id) {
-      throw new Error('WhatsApp Phone Number ID not configured');
+    if (!this.settings?.waba_id) {
+      throw new Error('WhatsApp Business Account ID not configured');
     }
 
     try {
-      console.log('📤 Uploading media using standard WhatsApp API...');
+      console.log('📤 Uploading media for template using WABA_ID...');
       
-      const url = `${this.settings.graph_api_base_url}/${this.settings.api_version}/${this.settings.phone_number_id}/media`;
+      // Use WABA_ID for template media upload
+      const url = `${this.settings.graph_api_base_url}/${this.settings.api_version}/${this.settings.waba_id}/media`;
       
       const formData = new FormData();
       formData.append('file', file);
@@ -396,7 +397,7 @@ export class WhatsAppAPI {
     return await response.json();
   }
 
-  // Updated buildTemplatePayload method to use the simplified media upload
+  // Updated buildTemplatePayload method with proper media handling
   async buildTemplatePayload(template: any): Promise<any> {
     const payload: any = {
       name: template.name,
@@ -428,9 +429,12 @@ export class WhatsAppAPI {
           try {
             console.log('📤 Uploading media file for header...');
             const mediaId = await this.uploadMediaForTemplate(template.header_media_file);
+            
+            // Use the correct format for media in template
             headerComponent.example = {
               header_handle: [mediaId]
             };
+            
             console.log('✅ Media uploaded successfully, media_id:', mediaId);
           } catch (error) {
             console.error('❌ Failed to upload media for header:', error);
