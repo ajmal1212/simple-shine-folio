@@ -78,6 +78,27 @@ const Templates = () => {
     }
   };
 
+  const extractVariablesFromText = (text: string): Variable[] => {
+    const variables: Variable[] = [];
+    const matches = text.match(/\{\{\d+\}\}/g);
+    
+    if (matches) {
+      matches.forEach((match) => {
+        const number = match.replace(/[{}]/g, '');
+        const variableIndex = parseInt(number) - 1;
+        
+        if (!variables[variableIndex]) {
+          variables[variableIndex] = {
+            name: `variable_${number}`,
+            sample: `Sample ${number}`
+          };
+        }
+      });
+    }
+    
+    return variables.filter(Boolean); // Remove any undefined elements
+  };
+
   const syncWhatsAppTemplates = async () => {
     setIsSyncing(true);
     try {
@@ -102,32 +123,62 @@ const Templates = () => {
               let bodyText = '';
               let footerText = '';
               let buttons: any[] = [];
+              let allVariables: Variable[] = [];
 
               if (template.components) {
                 for (const component of template.components) {
                   switch (component.type) {
                     case 'HEADER':
                       headerType = component.format || 'TEXT';
-                      headerContent = component.text || '';
+                      if (component.text) {
+                        headerContent = component.text;
+                        // Extract variables from header text
+                        const headerVars = extractVariablesFromText(component.text);
+                        allVariables.push(...headerVars);
+                      }
                       break;
                     case 'BODY':
                       bodyText = component.text || '';
+                      // Extract variables from body text
+                      const bodyVars = extractVariablesFromText(bodyText);
+                      allVariables.push(...bodyVars);
                       break;
                     case 'FOOTER':
                       footerText = component.text || '';
+                      // Extract variables from footer text
+                      const footerVars = extractVariablesFromText(footerText);
+                      allVariables.push(...footerVars);
                       break;
                     case 'BUTTONS':
-                      buttons = component.buttons || [];
+                      buttons = component.buttons?.map((btn: any, index: number) => ({
+                        id: `btn_${index}`,
+                        type: btn.type,
+                        text: btn.text,
+                        url: btn.url,
+                        phone_number: btn.phone_number,
+                        flow_id: btn.flow_id,
+                        flow_cta: btn.flow_cta,
+                        flow_action: btn.flow_action
+                      })) || [];
                       break;
                   }
                 }
               }
 
+              // Remove duplicates and sort variables
+              const uniqueVariables = allVariables.reduce((acc: Variable[], current) => {
+                const exists = acc.find(v => v.name === current.name);
+                if (!exists) {
+                  acc.push(current);
+                }
+                return acc;
+              }, []);
+
               // Get current user
               const { data: { user } } = await supabase.auth.getUser();
               if (!user) throw new Error('User not authenticated');
 
-              // Insert template into database
+              // Insert template into database with proper language code
               const { error: insertError } = await supabase
                 .from('whatsapp_templates')
                 .insert({
@@ -140,13 +191,16 @@ const Templates = () => {
                   body_text: bodyText,
                   footer_text: footerText,
                   buttons: buttons.length > 0 ? buttons : null,
-                  variables: null,
+                  variables: uniqueVariables.length > 0 ? uniqueVariables : null,
                   status: template.status || 'APPROVED',
                   whatsapp_template_id: template.id
                 });
 
               if (!insertError) {
                 syncedCount++;
+                console.log(`Synced template: ${template.name} with ${uniqueVariables.length} variables`);
+              } else {
+                console.error('Error inserting template:', template.name, insertError);
               }
             }
           } catch (templateError) {

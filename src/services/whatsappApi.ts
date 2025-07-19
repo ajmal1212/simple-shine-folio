@@ -32,7 +32,6 @@ export class WhatsAppAPI {
     }
   }
 
-  // Media upload for templates - try PHONE_NUMBER_ID first, then WABA_ID as fallback
   async uploadMediaForTemplate(file: File): Promise<string> {
     if (!this.settings) {
       await this.loadSettings();
@@ -285,12 +284,41 @@ export class WhatsAppAPI {
     return await response.json();
   }
 
-  async sendTemplateMessage(to: string, templateName: string, language: string = 'en_US', parameters?: any[]): Promise<any> {
+  async sendTemplateMessage(to: string, templateName: string, language: string = 'en', headerMediaUrl?: string, variables?: string[]): Promise<any> {
     if (!this.settings) {
       await this.loadSettings();
     }
 
     const url = this.getApiUrl('messages');
+    
+    const templateComponents: any[] = [];
+
+    // Add header component with media if provided
+    if (headerMediaUrl) {
+      templateComponents.push({
+        type: "header",
+        parameters: [
+          {
+            type: "image",
+            image: {
+              link: headerMediaUrl
+            }
+          }
+        ]
+      });
+    }
+
+    // Add body parameters if variables are provided
+    if (variables && variables.length > 0) {
+      templateComponents.push({
+        type: "body",
+        parameters: variables.map(variable => ({
+          type: "text",
+          text: variable
+        }))
+      });
+    }
+
     const body = {
       messaging_product: 'whatsapp',
       to: to,
@@ -298,9 +326,11 @@ export class WhatsAppAPI {
       template: {
         name: templateName,
         language: { code: language },
-        ...(parameters && { components: parameters })
+        ...(templateComponents.length > 0 && { components: templateComponents })
       }
     };
+
+    console.log('Sending template message:', JSON.stringify(body, null, 2));
 
     const response = await fetch(url, {
       method: 'POST',
@@ -308,7 +338,14 @@ export class WhatsAppAPI {
       body: JSON.stringify(body)
     });
 
-    return await response.json();
+    const result = await response.json();
+    
+    if (result.error) {
+      console.error('Template send error:', result.error);
+      throw new Error(`Failed to send template: ${result.error.message}`);
+    }
+
+    return result;
   }
 
   async sendTemplate(to: string, templateData: any): Promise<any> {
@@ -430,7 +467,6 @@ export class WhatsAppAPI {
     return await response.json();
   }
 
-  // Updated buildTemplatePayload method following official documentation
   async buildTemplatePayload(template: any): Promise<any> {
     const payload: any = {
       name: template.name,
