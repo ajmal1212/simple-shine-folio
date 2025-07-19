@@ -32,52 +32,105 @@ export class WhatsAppAPI {
     }
   }
 
-  // Updated media upload method that works with CORS restrictions
+  // Updated media upload method using the resumable upload API like the Python code
   async uploadMediaForTemplate(file: File): Promise<string> {
     if (!this.settings) {
       await this.loadSettings();
     }
 
-    if (!this.settings?.phone_number_id) {
-      throw new Error('WhatsApp Phone Number ID not configured');
+    if (!this.settings?.app_id) {
+      throw new Error('WhatsApp App ID not configured');
     }
 
     try {
-      console.log('📤 Uploading media file via WhatsApp Cloud API...');
+      console.log('📤 Starting resumable media upload...');
       
-      // Use the regular media upload endpoint instead of the resumable upload
-      const url = `${this.settings.graph_api_base_url}/${this.settings.api_version}/${this.settings.phone_number_id}/media`;
+      // Step 1: Get session ID (like get_session_id in Python)
+      const sessionId = await this.getUploadSessionId(file);
+      console.log('✅ Got session ID:', sessionId);
       
-      const formData = new FormData();
-      formData.append('file', file);
-      formData.append('type', this.getMediaType(file.type));
-      formData.append('messaging_product', 'whatsapp');
-
-      const response = await fetch(url, {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${this.settings.access_token}`,
-        },
-        body: formData
-      });
-
-      const result = await response.json();
+      // Step 2: Upload file and get media ID (like get_media_id in Python)
+      const mediaId = await this.uploadFileToSession(sessionId, file);
+      console.log('✅ Got media ID:', mediaId);
       
-      if (result.error) {
-        console.error('❌ Media upload error:', result.error);
-        throw new Error(`Media upload error: ${result.error.message}`);
-      }
-
-      if (result.id) {
-        console.log('✅ Media uploaded successfully, media_id:', result.id);
-        return result.id;
-      } else {
-        throw new Error('No media ID returned from WhatsApp API');
-      }
+      return mediaId;
     } catch (error) {
       console.error('❌ Media upload failed:', error);
       throw error;
     }
+  }
+
+  private async getUploadSessionId(file: File): Promise<string> {
+    if (!this.settings) {
+      throw new Error('WhatsApp settings not loaded');
+    }
+
+    const url = `${this.settings.graph_api_base_url}/${this.settings.api_version}/${this.settings.app_id}/uploads`;
+    
+    const payload = {
+      file_length: file.size,
+      file_type: file.type,
+      messaging_product: 'whatsapp'
+    };
+
+    console.log('Creating upload session with payload:', payload);
+
+    const response = await fetch(url, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${this.settings.access_token}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(payload)
+    });
+
+    const result = await response.json();
+    
+    if (result.error) {
+      console.error('❌ Session creation error:', result.error);
+      throw new Error(`Session creation error: ${result.error.message}`);
+    }
+
+    if (!result.id) {
+      throw new Error('No session ID returned from WhatsApp API');
+    }
+
+    return result.id;
+  }
+
+  private async uploadFileToSession(sessionId: string, file: File): Promise<string> {
+    if (!this.settings) {
+      throw new Error('WhatsApp settings not loaded');
+    }
+
+    const url = `${this.settings.graph_api_base_url}/${this.settings.api_version}/${sessionId}`;
+    
+    // Convert file to ArrayBuffer for binary upload
+    const fileBuffer = await file.arrayBuffer();
+    
+    console.log('Uploading file to session:', sessionId);
+
+    const response = await fetch(url, {
+      method: 'POST',
+      headers: {
+        'Authorization': `OAuth ${this.settings.access_token}`,
+        'file_offset': '0',
+      },
+      body: fileBuffer
+    });
+
+    const result = await response.json();
+    
+    if (result.error) {
+      console.error('❌ File upload error:', result.error);
+      throw new Error(`File upload error: ${result.error.message}`);
+    }
+
+    if (!result.h) {
+      throw new Error('No media handle returned from WhatsApp API');
+    }
+
+    return result.h;
   }
 
   private getMediaType(mimeType: string): string {
@@ -86,8 +139,6 @@ export class WhatsAppAPI {
     if (mimeType.startsWith('audio/')) return 'audio';
     return 'document';
   }
-
-  // Remove the old upload session methods as they're causing CORS issues
 
   async syncTemplatesFromWhatsApp(): Promise<any> {
     if (!this.settings) {
@@ -395,7 +446,7 @@ export class WhatsAppAPI {
     return await response.json();
   }
 
-  // Updated buildTemplatePayload method to handle media upload properly
+  // Updated buildTemplatePayload method to handle media upload properly using the new resumable upload
   async buildTemplatePayload(template: any): Promise<any> {
     const payload: any = {
       name: template.name,
