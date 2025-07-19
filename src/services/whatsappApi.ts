@@ -1,3 +1,4 @@
+
 import { supabase } from '@/integrations/supabase/client';
 
 interface WhatsAppSettings {
@@ -32,21 +33,21 @@ export class WhatsAppAPI {
     }
   }
 
-  // Fixed media upload using WABA_ID for template media
+  // Media upload following official WhatsApp documentation
   async uploadMediaForTemplate(file: File): Promise<string> {
     if (!this.settings) {
       await this.loadSettings();
     }
 
-    if (!this.settings?.waba_id) {
-      throw new Error('WhatsApp Business Account ID not configured');
+    if (!this.settings?.phone_number_id) {
+      throw new Error('WhatsApp Phone Number ID not configured');
     }
 
     try {
-      console.log('📤 Uploading media for template using WABA_ID...');
+      console.log('📤 Uploading media following official WhatsApp documentation...');
       
-      // Use WABA_ID for template media upload
-      const url = `${this.settings.graph_api_base_url}/${this.settings.api_version}/${this.settings.waba_id}/media`;
+      // Use PHONE_NUMBER_ID as per official documentation
+      const url = `${this.settings.graph_api_base_url}/${this.settings.api_version}/${this.settings.phone_number_id}/media`;
       
       const formData = new FormData();
       formData.append('file', file);
@@ -397,7 +398,7 @@ export class WhatsAppAPI {
     return await response.json();
   }
 
-  // Updated buildTemplatePayload method with proper media handling
+  // Updated buildTemplatePayload method following official documentation
   async buildTemplatePayload(template: any): Promise<any> {
     const payload: any = {
       name: template.name,
@@ -424,13 +425,13 @@ export class WhatsAppAPI {
           };
         }
       } else if (template.header_type === 'IMAGE' || template.header_type === 'DOCUMENT' || template.header_type === 'VIDEO') {
-        // For media headers, we need to upload the file first and get media_id
+        // For media headers, upload file and get media_id
         if (template.header_media_file && template.header_media_file instanceof File) {
           try {
             console.log('📤 Uploading media file for header...');
             const mediaId = await this.uploadMediaForTemplate(template.header_media_file);
             
-            // Use the correct format for media in template
+            // Use the correct format for media in template as per documentation
             headerComponent.example = {
               header_handle: [mediaId]
             };
