@@ -1,5 +1,6 @@
 
 import { whatsappConfig } from './config';
+import { supabase } from '@/integrations/supabase/client';
 
 export class WhatsAppMediaUpload {
   
@@ -15,128 +16,75 @@ export class WhatsAppMediaUpload {
     }
 
     try {
-      console.log('📤 Creating media upload session...');
+      console.log('📤 Creating media upload session via Supabase Edge Function...');
       console.log('File details:', { 
         name: file.name, 
         size: file.size, 
         type: file.type 
       });
       
-      // Create form data for the upload session request
-      const formData = new FormData();
-      formData.append('file_name', file.name);
-      formData.append('file_length', file.size.toString());
-      formData.append('file_type', file.type);
-      formData.append('access_token', updatedSettings.access_token);
-
-      const url = `${updatedSettings.graph_api_base_url}/${updatedSettings.api_version}/${updatedSettings.app_id}/uploads`;
-      console.log('Creating upload session with URL:', url);
-
-      const response = await fetch(url, {
-        method: 'POST',
-        body: formData
+      const { data, error } = await supabase.functions.invoke('whatsapp-media-upload', {
+        body: {
+          action: 'createUploadSession',
+          fileName: file.name,
+          fileLength: file.size,
+          fileType: file.type
+        }
       });
 
-      if (!response.ok) {
-        const errorText = await response.text();
-        console.error('❌ Upload session HTTP error:', response.status, errorText);
-        throw new Error(`Failed to create upload session: HTTP ${response.status} - ${errorText}`);
+      if (error) {
+        console.error('❌ Upload session creation error:', error);
+        throw new Error(`Upload session error: ${error.message}`);
       }
 
-      const result = await response.json();
-      console.log('Upload session response:', result);
-      
-      if (result.error) {
-        console.error('❌ Upload session creation error:', result.error);
-        throw new Error(`Upload session error: ${result.error.message || JSON.stringify(result.error)}`);
+      if (!data?.uploadSessionId) {
+        throw new Error('No upload session ID returned from API');
       }
 
-      if (!result.id) {
-        throw new Error('No upload session ID returned from WhatsApp API');
-      }
-
-      console.log('✅ Upload session created successfully, session_id:', result.id);
-      return result.id;
+      console.log('✅ Upload session created successfully, session_id:', data.uploadSessionId);
+      return data.uploadSessionId;
     } catch (error) {
       console.error('❌ Upload session creation failed:', error);
-      if (error instanceof TypeError && error.message === 'Failed to fetch') {
-        throw new Error('Network error: Cannot connect to WhatsApp API. This might be due to CORS restrictions or network issues. Please try again or contact support.');
-      }
       throw error;
     }
   }
 
   async uploadFileContent(uploadSessionId: string, file: File): Promise<string> {
-    const settings = whatsappConfig.getSettings();
-    if (!settings) {
-      await whatsappConfig.loadSettings();
-    }
-
-    const updatedSettings = whatsappConfig.getSettings();
-    if (!updatedSettings) {
-      throw new Error('WhatsApp settings not loaded');
-    }
-
     try {
-      console.log('📤 Uploading file content to session:', uploadSessionId);
+      console.log('📤 Uploading file content via Supabase Edge Function...');
       
-      // Extract the actual session ID from the full upload session ID
-      const sessionId = uploadSessionId.includes('upload:') ? uploadSessionId : `upload:${uploadSessionId}`;
-      const uploadUrl = `${updatedSettings.graph_api_base_url}/${updatedSettings.api_version}/${sessionId}`;
-      
-      console.log('Upload URL:', uploadUrl);
-      console.log('File size:', file.size, 'bytes');
-      
-      // Create headers as per WhatsApp API documentation
-      const headers = new Headers();
-      headers.append('Authorization', `OAuth ${updatedSettings.access_token}`);
-      headers.append('file_offset', '0');
-      headers.append('Content-Type', 'application/octet-stream');
-
-      const response = await fetch(uploadUrl, {
-        method: 'POST',
-        headers: headers,
-        body: file
+      // Convert file to base64
+      const fileData = await new Promise<string>((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => {
+          const base64 = (reader.result as string).split(',')[1];
+          resolve(base64);
+        };
+        reader.onerror = reject;
+        reader.readAsDataURL(file);
       });
 
-      console.log('Upload response status:', response.status);
-
-      if (!response.ok) {
-        const errorText = await response.text();
-        console.error('❌ File upload HTTP error:', response.status, errorText);
-        
-        // Try to parse error details
-        try {
-          const errorJson = JSON.parse(errorText);
-          if (errorJson.error) {
-            throw new Error(`WhatsApp API Error: ${errorJson.error.message || errorJson.error.type || 'Unknown error'}`);
-          }
-        } catch (parseError) {
-          // If parsing fails, use the raw error text
+      const { data, error } = await supabase.functions.invoke('whatsapp-media-upload', {
+        body: {
+          action: 'uploadFileContent',
+          uploadSessionId,
+          fileData
         }
-        
-        throw new Error(`File upload failed: HTTP ${response.status} - ${errorText}`);
+      });
+
+      if (error) {
+        console.error('❌ File upload error:', error);
+        throw new Error(`File upload error: ${error.message}`);
       }
 
-      const result = await response.json();
-      console.log('File upload response:', result);
-      
-      if (result.error) {
-        console.error('❌ File upload error:', result.error);
-        throw new Error(`File upload error: ${result.error.message || JSON.stringify(result.error)}`);
+      if (!data?.mediaHandle) {
+        throw new Error('No media handle returned from API');
       }
 
-      if (!result.h) {
-        throw new Error('No media handle returned from WhatsApp API');
-      }
-
-      console.log('✅ File uploaded successfully, media_handle:', result.h);
-      return result.h;
+      console.log('✅ File uploaded successfully, media_handle:', data.mediaHandle);
+      return data.mediaHandle;
     } catch (error) {
       console.error('❌ File upload failed:', error);
-      if (error instanceof TypeError && error.message === 'Failed to fetch') {
-        throw new Error('Network error: Cannot upload to WhatsApp API. This might be due to CORS restrictions or network connectivity issues.');
-      }
       throw error;
     }
   }
@@ -208,117 +156,70 @@ export class WhatsAppMediaUpload {
   }
 
   async resumeUpload(uploadSessionId: string): Promise<number> {
-    const settings = whatsappConfig.getSettings();
-    if (!settings) {
-      await whatsappConfig.loadSettings();
-    }
-
-    const updatedSettings = whatsappConfig.getSettings();
-    if (!updatedSettings) {
-      throw new Error('WhatsApp settings not loaded');
-    }
-
-    if (!uploadSessionId) {
-      throw new Error('No upload session ID provided for resume');
-    }
-
     try {
-      console.log('🔄 Checking upload session status:', uploadSessionId);
+      console.log('🔄 Checking upload session status via Supabase Edge Function...');
       
-      // Extract the actual session ID from the full upload session ID
-      const sessionId = uploadSessionId.includes('upload:') ? uploadSessionId : `upload:${uploadSessionId}`;
-      const url = `${updatedSettings.graph_api_base_url}/${updatedSettings.api_version}/${sessionId}`;
-      
-      const response = await fetch(url, {
-        method: 'GET',
-        headers: {
-          'Authorization': `OAuth ${updatedSettings.access_token}`
+      const { data, error } = await supabase.functions.invoke('whatsapp-media-upload', {
+        body: {
+          action: 'resumeUpload',
+          uploadSessionId
         }
       });
 
-      if (!response.ok) {
-        const errorText = await response.text();
-        console.error('❌ Resume upload HTTP error:', response.status, errorText);
-        throw new Error(`Failed to check upload status: HTTP ${response.status} - ${errorText}`);
+      if (error) {
+        console.error('❌ Resume upload error:', error);
+        throw new Error(`Resume upload error: ${error.message}`);
       }
 
-      const result = await response.json();
-      console.log('Resume upload response:', result);
-      
-      if (result.error) {
-        console.error('❌ Resume upload error:', result.error);
-        throw new Error(`Resume upload error: ${result.error.message || JSON.stringify(result.error)}`);
-      }
-
-      const fileOffset = parseInt(result.file_offset || '0');
+      const fileOffset = data?.fileOffset || 0;
       console.log('✅ Upload can be resumed from offset:', fileOffset);
       return fileOffset;
     } catch (error) {
       console.error('❌ Resume upload failed:', error);
-      if (error instanceof TypeError && error.message === 'Failed to fetch') {
-        throw new Error('Network error: Cannot check upload status. Please try again.');
-      }
       throw error;
     }
   }
 
   async resumeFileUpload(uploadSessionId: string, file: File, fileOffset: number): Promise<string> {
-    const settings = whatsappConfig.getSettings();
-    if (!settings) {
-      await whatsappConfig.loadSettings();
-    }
-
-    const updatedSettings = whatsappConfig.getSettings();
-    if (!updatedSettings) {
-      throw new Error('WhatsApp settings not loaded');
-    }
-
     try {
       console.log('📤 Resuming file upload from offset:', fileOffset);
-      
-      // Extract the actual session ID from the full upload session ID
-      const sessionId = uploadSessionId.includes('upload:') ? uploadSessionId : `upload:${uploadSessionId}`;
-      const uploadUrl = `${updatedSettings.graph_api_base_url}/${updatedSettings.api_version}/${sessionId}`;
       
       // Create a slice of the file starting from the offset
       const fileSlice = file.slice(fileOffset);
       
-      const headers = new Headers();
-      headers.append('Authorization', `OAuth ${updatedSettings.access_token}`);
-      headers.append('file_offset', fileOffset.toString());
-      headers.append('Content-Type', 'application/octet-stream');
-
-      const response = await fetch(uploadUrl, {
-        method: 'POST',
-        headers: headers,
-        body: fileSlice
+      // Convert file slice to base64
+      const fileData = await new Promise<string>((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => {
+          const base64 = (reader.result as string).split(',')[1];
+          resolve(base64);
+        };
+        reader.onerror = reject;
+        reader.readAsDataURL(fileSlice);
       });
 
-      if (!response.ok) {
-        const errorText = await response.text();
-        console.error('❌ Resume file upload HTTP error:', response.status, errorText);
-        throw new Error(`Resume upload failed: HTTP ${response.status} - ${errorText}`);
+      const { data, error } = await supabase.functions.invoke('whatsapp-media-upload', {
+        body: {
+          action: 'uploadFileContent',
+          uploadSessionId,
+          fileData,
+          fileOffset
+        }
+      });
+
+      if (error) {
+        console.error('❌ Resume file upload error:', error);
+        throw new Error(`Resume file upload error: ${error.message}`);
       }
 
-      const result = await response.json();
-      console.log('Resume file upload response:', result);
-      
-      if (result.error) {
-        console.error('❌ Resume file upload error:', result.error);
-        throw new Error(`Resume file upload error: ${result.error.message || JSON.stringify(result.error)}`);
-      }
-
-      if (!result.h) {
+      if (!data?.mediaHandle) {
         throw new Error('No media handle returned from resumed file upload');
       }
 
-      console.log('✅ File upload resumed successfully, media_handle:', result.h);
-      return result.h;
+      console.log('✅ File upload resumed successfully, media_handle:', data.mediaHandle);
+      return data.mediaHandle;
     } catch (error) {
       console.error('❌ Resume file upload failed:', error);
-      if (error instanceof TypeError && error.message === 'Failed to fetch') {
-        throw new Error('Network error: Cannot resume upload. Please try again.');
-      }
       throw error;
     }
   }

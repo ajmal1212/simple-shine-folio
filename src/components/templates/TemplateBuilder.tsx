@@ -1,20 +1,17 @@
+
 import React, { useState, useEffect } from 'react';
-import { Save, ArrowLeft, AlertCircle, RefreshCw } from 'lucide-react';
+import { Save, ArrowLeft } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { Textarea } from '@/components/ui/textarea';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { Alert, AlertDescription } from '@/components/ui/alert';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
 import { TemplatePreview } from './TemplatePreview';
-import { MediaUpload } from './MediaUpload';
-import { ImageSelector } from './ImageSelector';
 import { VariableManager } from './VariableManager';
 import { ButtonManager } from './ButtonManager';
+import { TemplateBasicInfo } from './TemplateBasicInfo';
+import { TemplateHeader } from './TemplateHeader';
+import { TemplateBody } from './TemplateBody';
+import { TemplateFooter } from './TemplateFooter';
 import { Template, ButtonComponent, Variable } from '@/types/template';
 import { whatsappApi } from '@/services/whatsappApi';
 
@@ -33,7 +30,7 @@ export const TemplateBuilder: React.FC<TemplateBuilderProps> = ({ onSave, onCanc
     header_type: 'NONE',
     header_content: '',
     header_media_file: null as File | null,
-    header_handle: '', // Store the header handle from WhatsApp
+    header_handle: '',
     body_text: '',
     footer_text: '',
     buttons: [] as ButtonComponent[],
@@ -201,10 +198,6 @@ export const TemplateBuilder: React.FC<TemplateBuilderProps> = ({ onSave, onCanc
     } finally {
       setIsUploading(false);
     }
-  };
-
-  const handleMediaFileSelect = async (file: File) => {
-    await handleMediaUpload(file);
   };
 
   const validateTemplate = () => {
@@ -411,229 +404,50 @@ export const TemplateBuilder: React.FC<TemplateBuilderProps> = ({ onSave, onCanc
         <div className="flex-1 overflow-hidden">
           <ScrollArea className="h-full">
             <div className="p-6 max-w-2xl space-y-6">
-              {/* Basic Info */}
-              <Card>
-                <CardHeader>
-                  <CardTitle className="text-base">Template Information</CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                  <div className="grid grid-cols-2 gap-4">
-                    <div>
-                      <Label htmlFor="template-name" className="text-sm">Template Name *</Label>
-                      <Input
-                        id="template-name"
-                        value={template.name}
-                        onChange={(e) => setTemplate(prev => ({ ...prev, name: e.target.value }))}
-                        placeholder="my_template_name"
-                        className="text-sm"
-                      />
-                    </div>
-                    <div>
-                      <Label htmlFor="category" className="text-sm">Category *</Label>
-                      <Select value={template.category} onValueChange={(value) => setTemplate(prev => ({ ...prev, category: value }))}>
-                        <SelectTrigger className="text-sm">
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="UTILITY">Utility</SelectItem>
-                          <SelectItem value="MARKETING">Marketing</SelectItem>
-                          <SelectItem value="AUTHENTICATION">Authentication</SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </div>
-                  </div>
-                  
-                  <div>
-                    <Label htmlFor="language" className="text-sm">Language</Label>
-                    <Select value={template.language} onValueChange={(value) => setTemplate(prev => ({ ...prev, language: value }))}>
-                      <SelectTrigger className="text-sm">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="en_US">English (US)</SelectItem>
-                        <SelectItem value="es">Spanish</SelectItem>
-                        <SelectItem value="fr">French</SelectItem>
-                        <SelectItem value="de">German</SelectItem>
-                        <SelectItem value="hi">Hindi</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                </CardContent>
-              </Card>
+              <TemplateBasicInfo
+                name={template.name}
+                category={template.category}
+                language={template.language}
+                onNameChange={(name) => setTemplate(prev => ({ ...prev, name }))}
+                onCategoryChange={(category) => setTemplate(prev => ({ ...prev, category }))}
+                onLanguageChange={(language) => setTemplate(prev => ({ ...prev, language }))}
+              />
 
-              {/* Header with improved media upload */}
-              <Card>
-                <CardHeader>
-                  <CardTitle className="text-base">Header (Optional)</CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                  <div>
-                    <Label htmlFor="header-type" className="text-sm">Header Type</Label>
-                    <Select 
-                      value={template.header_type} 
-                      onValueChange={(value) => setTemplate(prev => ({ 
-                        ...prev, 
-                        header_type: value,
-                        header_content: '',
-                        header_media_file: null,
-                        header_handle: ''
-                      }))}
-                    >
-                      <SelectTrigger className="text-sm">
-                        <SelectValue placeholder="None" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="NONE">None</SelectItem>
-                        <SelectItem value="TEXT">Text</SelectItem>
-                        <SelectItem value="IMAGE">Image</SelectItem>
-                        <SelectItem value="VIDEO">Video</SelectItem>
-                        <SelectItem value="DOCUMENT">Document</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  
-                  {template.header_type && template.header_type !== 'NONE' && (
-                    <>
-                      {template.header_type === 'TEXT' ? (
-                        <div>
-                          <Label htmlFor="header-content" className="text-sm">Header Text</Label>
-                          <Input
-                            id="header-content"
-                            value={template.header_content}
-                            onChange={(e) => setTemplate(prev => ({ ...prev, header_content: e.target.value }))}
-                            placeholder="Header text"
-                            className="text-sm"
-                          />
-                        </div>
-                      ) : (
-                        <div className="space-y-3">
-                          <Label className="text-sm">Upload {template.header_type}</Label>
-                          <input
-                            type="file"
-                            accept={template.header_type === 'IMAGE' ? 'image/*' : template.header_type === 'VIDEO' ? 'video/*' : '*/*'}
-                            onChange={(e) => {
-                              const file = e.target.files?.[0];
-                              if (file) {
-                                handleMediaFileSelect(file);
-                              }
-                            }}
-                            disabled={isUploading}
-                            className="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-green-50 file:text-green-700 hover:file:bg-green-100 disabled:opacity-50"
-                          />
-                          
-                          {/* Enhanced Upload Status Display */}
-                          {(uploadStatus || uploadError) && (
-                            <div className={`p-4 rounded-lg border ${
-                              uploadError ? 'bg-red-50 border-red-200' : 
-                              uploadStatus.includes('✅') ? 'bg-green-50 border-green-200' : 
-                              'bg-blue-50 border-blue-200'
-                            }`}>
-                              <div className="flex items-center justify-between">
-                                <div className="flex items-center space-x-2">
-                                  {isUploading && (
-                                    <div className="w-4 h-4 border-2 border-blue-600 border-t-transparent rounded-full animate-spin"></div>
-                                  )}
-                                  <p className={`text-sm font-medium ${
-                                    uploadError ? 'text-red-700' : 
-                                    uploadStatus.includes('✅') ? 'text-green-700' : 
-                                    'text-blue-700'
-                                  }`}>
-                                    {uploadStatus || uploadError}
-                                  </p>
-                                </div>
-                                
-                                {/* Resume Upload Button */}
-                                {uploadSessionId && uploadError && (
-                                  <Button
-                                    size="sm"
-                                    variant="outline"
-                                    onClick={handleResumeUpload}
-                                    disabled={isUploading}
-                                    className="text-xs h-8"
-                                  >
-                                    <RefreshCw className="w-3 h-3 mr-1" />
-                                    Resume Upload
-                                  </Button>
-                                )}
-                              </div>
-                              
-                              {/* Show upload session ID for debugging */}
-                              {uploadSessionId && (
-                                <p className="text-xs text-gray-500 mt-2 break-all">
-                                  Session ID: {uploadSessionId}
-                                </p>
-                              )}
-                            </div>
-                          )}
-                          
-                          {/* Show preview and header handle */}
-                          {template.header_content && (
-                            <div className="space-y-2">
-                              {template.header_type === 'IMAGE' && (
-                                <img src={template.header_content} alt="Header preview" className="max-w-32 max-h-32 object-cover rounded border" />
-                              )}
-                              <p className="text-xs text-gray-500">
-                                {template.header_media_file ? `File: ${template.header_media_file.name}` : 'Preview'}
-                              </p>
-                            </div>
-                          )}
-                          
-                          {/* Header Handle Display */}
-                          {template.header_handle && (
-                            <div className="p-4 bg-green-50 border border-green-200 rounded-lg">
-                              <Label className="text-sm font-medium text-green-800">Header Handle (Ready for WhatsApp):</Label>
-                              <div className="mt-2 p-3 bg-white border rounded text-xs font-mono break-all text-green-700 max-h-32 overflow-y-auto">
-                                {template.header_handle}
-                              </div>
-                              <p className="text-xs text-green-600 mt-2">✅ Media uploaded successfully and ready for template submission</p>
-                            </div>
-                          )}
-                        </div>
-                      )}
-                    </>
-                  )}
-                </CardContent>
-              </Card>
+              <TemplateHeader
+                headerType={template.header_type}
+                headerContent={template.header_content}
+                headerHandle={template.header_handle}
+                headerMediaFile={template.header_media_file}
+                uploadStatus={uploadStatus}
+                uploadError={uploadError}
+                uploadSessionId={uploadSessionId}
+                isUploading={isUploading}
+                onHeaderTypeChange={(type) => setTemplate(prev => ({ 
+                  ...prev, 
+                  header_type: type,
+                  header_content: '',
+                  header_media_file: null,
+                  header_handle: ''
+                }))}
+                onHeaderContentChange={(content) => setTemplate(prev => ({ ...prev, header_content: content }))}
+                onMediaFileSelect={handleMediaUpload}
+                onResumeUpload={handleResumeUpload}
+              />
 
-              {/* Body */}
-              <Card>
-                <CardHeader>
-                  <CardTitle className="text-base">Body Text *</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <Textarea
-                    value={template.body_text}
-                    onChange={(e) => setTemplate(prev => ({ ...prev, body_text: e.target.value }))}
-                    placeholder="Your message body text here... Use {{1}}, {{2}} for variables. Use **text** for bold formatting."
-                    rows={6}
-                    className="text-sm"
-                  />
-                  <p className="text-xs text-gray-500 mt-2">
-                    Use {`{{1}}, {{2}}, {{3}}`} etc. for variables. Use **text** for bold formatting.
-                  </p>
-                </CardContent>
-              </Card>
+              <TemplateBody
+                bodyText={template.body_text}
+                onBodyTextChange={(text) => setTemplate(prev => ({ ...prev, body_text: text }))}
+              />
 
-              {/* Variables */}
               <VariableManager
                 variables={template.variables}
                 onVariablesChange={(variables) => setTemplate(prev => ({ ...prev, variables }))}
               />
 
-              {/* Footer */}
-              <Card>
-                <CardHeader>
-                  <CardTitle className="text-base">Footer (Optional)</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <Input
-                    value={template.footer_text}
-                    onChange={(e) => setTemplate(prev => ({ ...prev, footer_text: e.target.value }))}
-                    placeholder="Optional footer text"
-                    className="text-sm"
-                  />
-                </CardContent>
-              </Card>
+              <TemplateFooter
+                footerText={template.footer_text}
+                onFooterTextChange={(text) => setTemplate(prev => ({ ...prev, footer_text: text }))}
+              />
 
               <ButtonManager
                 buttons={template.buttons}

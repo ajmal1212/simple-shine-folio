@@ -3,3 +3,6 @@ project_id = "ayqbuorewgfnssadtyee"
 
 [functions.whatsapp-webhook]
 verify_jwt = false
+
+[functions.whatsapp-media-upload]
+verify_jwt = false
