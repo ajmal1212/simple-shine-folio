@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { ArrowLeft, ArrowRight, Upload, FileText, Send, Image } from 'lucide-react';
@@ -127,7 +126,7 @@ const CreateCampaign = () => {
           variables: {}
         };
 
-        // Map variables from CSV columns
+        // Map variables from CSV columns to template variables
         variables.forEach(variable => {
           const variableNumber = variable.replace(/[{}]/g, '');
           const columnName = `var${variableNumber}`;
@@ -229,6 +228,34 @@ const CreateCampaign = () => {
     setCurrentStep(prev => prev - 1);
   };
 
+  const saveCampaignToDatabase = async (successCount: number, errorCount: number) => {
+    try {
+      const { data, error } = await supabase
+        .from('campaigns')
+        .insert([
+          {
+            name: campaignName,
+            template_name: selectedTemplate?.name,
+            template_id: selectedTemplate?.id,
+            recipients_count: contacts.length,
+            delivered_count: successCount,
+            failed_count: errorCount,
+            status: 'sent',
+            sent_at: new Date().toISOString(),
+            media_url: mediaUrl || null
+          }
+        ]);
+
+      if (error) {
+        console.error('Error saving campaign:', error);
+      } else {
+        console.log('Campaign saved successfully');
+      }
+    } catch (error) {
+      console.error('Error saving campaign to database:', error);
+    }
+  };
+
   const createCampaign = async () => {
     if (!selectedTemplate) return;
 
@@ -272,7 +299,7 @@ const CreateCampaign = () => {
             // Add body component with variables if exists
             if (variables.length > 0) {
               const bodyParameters = variables.map(variable => {
-                // Get the actual value from contact variables, not the placeholder
+                // Get the actual value from contact variables
                 const actualValue = contact.variables?.[variable] || variable;
                 return {
                   type: 'text',
@@ -295,6 +322,9 @@ const CreateCampaign = () => {
           errorCount++;
         }
       }
+
+      // Save campaign to database
+      await saveCampaignToDatabase(successCount, errorCount);
 
       toast({
         title: "Campaign Completed",

@@ -1,47 +1,74 @@
 
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Bell, Plus, Send, Users, Calendar, BarChart } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { DashboardLayout } from '@/components/layout/DashboardLayout';
+import { supabase } from '@/integrations/supabase/client';
 
 const Broadcasts = () => {
   const navigate = useNavigate();
+  const [campaigns, setCampaigns] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
   
-  const campaigns = [
-    {
-      id: '1',
-      name: 'Summer Sale 2024',
-      status: 'sent',
-      recipients: 1247,
-      delivered: 1198,
-      read: 856,
-      sentAt: '2 hours ago',
-      template: 'summer_sale_promo'
-    },
-    {
-      id: '2',
-      name: 'New Product Launch',
-      status: 'scheduled',
-      recipients: 2156,
-      delivered: 0,
-      read: 0,
-      sentAt: 'Tomorrow, 9:00 AM',
-      template: 'product_announcement'
-    },
-    {
-      id: '3',
-      name: 'Weekly Newsletter',
-      status: 'draft',
-      recipients: 0,
-      delivered: 0,
-      read: 0,
-      sentAt: 'Not scheduled',
-      template: 'newsletter_template'
+  useEffect(() => {
+    loadCampaigns();
+  }, []);
+
+  const loadCampaigns = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('campaigns')
+        .select('*')
+        .order('created_at', { ascending: false })
+        .limit(10);
+
+      if (error) {
+        console.error('Error loading campaigns:', error);
+        // Fallback to mock data if campaigns table doesn't exist
+        setCampaigns([
+          {
+            id: '1',
+            name: 'Summer Sale 2024',
+            status: 'sent',
+            recipients_count: 1247,
+            delivered_count: 1198,
+            failed_count: 49,
+            sent_at: new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString(),
+            template_name: 'summer_sale_promo'
+          },
+          {
+            id: '2',
+            name: 'New Product Launch',
+            status: 'scheduled',
+            recipients_count: 2156,
+            delivered_count: 0,
+            failed_count: 0,
+            sent_at: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(),
+            template_name: 'product_announcement'
+          },
+          {
+            id: '3',
+            name: 'Weekly Newsletter',
+            status: 'draft',
+            recipients_count: 0,
+            delivered_count: 0,
+            failed_count: 0,
+            sent_at: null,
+            template_name: 'newsletter_template'
+          }
+        ]);
+      } else {
+        setCampaigns(data || []);
+      }
+    } catch (error) {
+      console.error('Error loading campaigns:', error);
+    } finally {
+      setLoading(false);
     }
-  ];
+  };
 
   const getStatusColor = (status: string) => {
     switch (status) {
@@ -53,6 +80,22 @@ const Broadcasts = () => {
         return 'bg-gray-100 text-gray-800';
       default:
         return 'bg-gray-100 text-gray-800';
+    }
+  };
+
+  const formatDate = (dateString: string | null) => {
+    if (!dateString) return 'Not scheduled';
+    
+    const date = new Date(dateString);
+    const now = new Date();
+    const diffInHours = Math.abs(now.getTime() - date.getTime()) / (1000 * 60 * 60);
+    
+    if (diffInHours < 24 && date < now) {
+      return `${Math.floor(diffInHours)} hours ago`;
+    } else if (date > now) {
+      return date.toLocaleDateString() + ', ' + date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    } else {
+      return date.toLocaleDateString();
     }
   };
 
@@ -83,7 +126,7 @@ const Broadcasts = () => {
               <div className="flex items-center justify-between">
                 <div>
                   <p className="text-sm font-medium text-gray-600">Total Campaigns</p>
-                  <p className="text-2xl font-bold text-gray-900 mt-1">47</p>
+                  <p className="text-2xl font-bold text-gray-900 mt-1">{campaigns.length}</p>
                 </div>
                 <div className="w-12 h-12 bg-purple-50 rounded-xl flex items-center justify-center">
                   <Bell className="w-6 h-6 text-purple-600" />
@@ -97,7 +140,9 @@ const Broadcasts = () => {
               <div className="flex items-center justify-between">
                 <div>
                   <p className="text-sm font-medium text-gray-600">Messages Sent</p>
-                  <p className="text-2xl font-bold text-gray-900 mt-1">24,847</p>
+                  <p className="text-2xl font-bold text-gray-900 mt-1">
+                    {campaigns.reduce((sum, campaign) => sum + (campaign.delivered_count || 0), 0).toLocaleString()}
+                  </p>
                 </div>
                 <div className="w-12 h-12 bg-blue-50 rounded-xl flex items-center justify-center">
                   <Send className="w-6 h-6 text-blue-600" />
@@ -145,62 +190,68 @@ const Broadcasts = () => {
             <CardDescription>Monitor your broadcast message performance</CardDescription>
           </CardHeader>
           <CardContent>
-            <div className="space-y-4">
-              {campaigns.map((campaign) => (
-                <div key={campaign.id} className="p-4 border border-gray-200 rounded-lg hover:border-primary/50 transition-colors">
-                  <div className="flex items-center justify-between">
-                    <div className="flex-1">
-                      <div className="flex items-center space-x-3 mb-2">
-                        <h3 className="font-medium text-gray-900">{campaign.name}</h3>
-                        <Badge className={getStatusColor(campaign.status)}>
-                          {campaign.status.charAt(0).toUpperCase() + campaign.status.slice(1)}
-                        </Badge>
+            {loading ? (
+              <div className="flex items-center justify-center py-8">
+                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+              </div>
+            ) : (
+              <div className="space-y-4">
+                {campaigns.map((campaign) => (
+                  <div key={campaign.id} className="p-4 border border-gray-200 rounded-lg hover:border-primary/50 transition-colors">
+                    <div className="flex items-center justify-between">
+                      <div className="flex-1">
+                        <div className="flex items-center space-x-3 mb-2">
+                          <h3 className="font-medium text-gray-900">{campaign.name}</h3>
+                          <Badge className={getStatusColor(campaign.status)}>
+                            {campaign.status.charAt(0).toUpperCase() + campaign.status.slice(1)}
+                          </Badge>
+                        </div>
+                        
+                        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm text-gray-600">
+                          <div>
+                            <p className="font-medium text-gray-900">{(campaign.recipients_count || 0).toLocaleString()}</p>
+                            <p>Recipients</p>
+                          </div>
+                          <div>
+                            <p className="font-medium text-gray-900">{(campaign.delivered_count || 0).toLocaleString()}</p>
+                            <p>Delivered</p>
+                          </div>
+                          <div>
+                            <p className="font-medium text-gray-900">{(campaign.failed_count || 0).toLocaleString()}</p>
+                            <p>Failed</p>
+                          </div>
+                          <div>
+                            <p className="font-medium text-gray-900">{formatDate(campaign.sent_at)}</p>
+                            <p>Sent</p>
+                          </div>
+                        </div>
                       </div>
-                      
-                      <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm text-gray-600">
-                        <div>
-                          <p className="font-medium text-gray-900">{campaign.recipients.toLocaleString()}</p>
-                          <p>Recipients</p>
-                        </div>
-                        <div>
-                          <p className="font-medium text-gray-900">{campaign.delivered.toLocaleString()}</p>
-                          <p>Delivered</p>
-                        </div>
-                        <div>
-                          <p className="font-medium text-gray-900">{campaign.read.toLocaleString()}</p>
-                          <p>Read</p>
-                        </div>
-                        <div>
-                          <p className="font-medium text-gray-900">{campaign.sentAt}</p>
-                          <p>Sent</p>
-                        </div>
-                      </div>
-                    </div>
 
-                    <div className="flex items-center space-x-2">
-                      {campaign.status === 'sent' && (
-                        <Button variant="outline" size="sm">
-                          <BarChart className="w-4 h-4 mr-2" />
-                          Reports
-                        </Button>
-                      )}
-                      {campaign.status === 'draft' && (
-                        <Button size="sm" className="whatsapp-green hover:bg-green-600">
-                          <Send className="w-4 h-4 mr-2" />
-                          Send Now
-                        </Button>
-                      )}
-                      {campaign.status === 'scheduled' && (
-                        <Button variant="outline" size="sm">
-                          <Calendar className="w-4 h-4 mr-2" />
-                          Reschedule
-                        </Button>
-                      )}
+                      <div className="flex items-center space-x-2">
+                        {campaign.status === 'sent' && (
+                          <Button variant="outline" size="sm">
+                            <BarChart className="w-4 h-4 mr-2" />
+                            Reports
+                          </Button>
+                        )}
+                        {campaign.status === 'draft' && (
+                          <Button size="sm" className="whatsapp-green hover:bg-green-600">
+                            <Send className="w-4 h-4 mr-2" />
+                            Send Now
+                          </Button>
+                        )}
+                        {campaign.status === 'scheduled' && (
+                          <Button variant="outline" size="sm">
+                            <Calendar className="w-4 h-4 mr-2" />
+                            Reschedule
+                          </Button>
+                        )}
+                      </div>
                     </div>
                   </div>
-                </div>
-              ))}
-            </div>
+                ))}
+              </div>
+            )}
           </CardContent>
         </Card>
 

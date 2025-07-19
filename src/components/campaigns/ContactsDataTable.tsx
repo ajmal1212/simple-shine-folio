@@ -76,7 +76,7 @@ export const ContactsDataTable: React.FC<ContactsDataTableProps> = ({
                 <TableHead>Phone Number</TableHead>
                 {variables.map((variable) => (
                   <TableHead key={variable}>
-                    Variable {variable.replace(/[{}]/g, '')}
+                    {variable} Value
                   </TableHead>
                 ))}
                 <TableHead className="w-32">Actions</TableHead>
@@ -105,7 +105,9 @@ export const ContactsDataTable: React.FC<ContactsDataTableProps> = ({
                           className="min-w-24"
                         />
                       ) : (
-                        contact.variables?.[variable] || '-'
+                        <span className="text-sm">
+                          {contact.variables?.[variable] || '-'}
+                        </span>
                       )}
                     </TableCell>
                   ))}
