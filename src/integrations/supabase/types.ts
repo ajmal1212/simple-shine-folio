@@ -14,6 +14,54 @@ export type Database = {
   }
   public: {
     Tables: {
+      campaigns: {
+        Row: {
+          created_at: string
+          delivered_count: number
+          failed_count: number
+          id: string
+          media_url: string | null
+          name: string
+          recipients_count: number
+          sent_at: string | null
+          status: string
+          template_id: string | null
+          template_name: string | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          delivered_count?: number
+          failed_count?: number
+          id?: string
+          media_url?: string | null
+          name: string
+          recipients_count?: number
+          sent_at?: string | null
+          status?: string
+          template_id?: string | null
+          template_name?: string | null
+          updated_at?: string
+          user_id?: string
+        }
+        Update: {
+          created_at?: string
+          delivered_count?: number
+          failed_count?: number
+          id?: string
+          media_url?: string | null
+          name?: string
+          recipients_count?: number
+          sent_at?: string | null
+          status?: string
+          template_id?: string | null
+          template_name?: string | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       chatbot_flows: {
         Row: {
           created_at: string
