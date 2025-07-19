@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { Save, ArrowLeft } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -67,10 +66,10 @@ export const TemplateBuilder: React.FC<TemplateBuilderProps> = ({ onSave, onCanc
     setUploadStatus('Starting upload process...');
     
     try {
-      // Validate file
-      const maxSize = 16 * 1024 * 1024; // 16MB
+      // Updated file size validation to match Meta's 100MB limit
+      const maxSize = 100 * 1024 * 1024; // 100MB
       if (file.size > maxSize) {
-        throw new Error('File size must be less than 16MB');
+        throw new Error('File size must be less than 100MB');
       }
 
       const allowedTypes = ['image/jpeg', 'image/jpg', 'image/png', 'video/mp4', 'application/pdf'];

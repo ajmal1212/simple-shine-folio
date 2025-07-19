@@ -1,130 +1,137 @@
 
-import "https://deno.land/x/xhr@0.1.0/mod.ts";
-import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
-import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
+import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-};
-
-interface WhatsAppSettings {
-  access_token: string;
-  graph_api_base_url: string;
-  api_version: string;
-  phone_number_id: string;
-  waba_id: string;
-  app_id: string;
 }
 
 serve(async (req) => {
+  // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
   }
 
   try {
-    const supabaseClient = createClient(
-      Deno.env.get('SUPABASE_URL') ?? '',
-      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
-    );
-
-    // Get WhatsApp settings
-    const { data: settings, error: settingsError } = await supabaseClient
-      .from('whatsapp_settings')
-      .select('access_token, graph_api_base_url, api_version, phone_number_id, waba_id, app_id')
-      .single();
-
-    if (settingsError || !settings) {
-      throw new Error('WhatsApp settings not found');
+    const { action, fileName, fileLength, fileType, uploadSessionId, fileData, fileOffset } = await req.json();
+    
+    // Get WhatsApp credentials from environment
+    const WHATSAPP_ACCESS_TOKEN = Deno.env.get('WHATSAPP_ACCESS_TOKEN');
+    const WHATSAPP_APP_ID = Deno.env.get('WHATSAPP_APP_ID');
+    
+    if (!WHATSAPP_ACCESS_TOKEN || !WHATSAPP_APP_ID) {
+      throw new Error('WhatsApp credentials not configured');
     }
 
-    const { action, ...payload } = await req.json();
+    console.log(`🔧 Processing action: ${action}`);
 
-    switch (action) {
-      case 'createUploadSession': {
-        const { fileName, fileLength, fileType } = payload;
-        
-        const formData = new FormData();
-        formData.append('file_name', fileName);
-        formData.append('file_length', fileLength.toString());
-        formData.append('file_type', fileType);
-        formData.append('access_token', settings.access_token);
-
-        const response = await fetch(`${settings.graph_api_base_url}/${settings.api_version}/${settings.app_id}/uploads`, {
-          method: 'POST',
-          body: formData
-        });
-
-        const result = await response.json();
-        if (result.error) {
-          throw new Error(result.error.message);
-        }
-
-        return new Response(JSON.stringify({ uploadSessionId: result.id }), {
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        });
+    if (action === 'createUploadSession') {
+      // Validate file size (updated to 100MB limit)
+      const maxSize = 100 * 1024 * 1024; // 100MB
+      if (fileLength > maxSize) {
+        throw new Error('File size exceeds 100MB limit');
       }
 
-      case 'uploadFileContent': {
-        const { uploadSessionId, fileData } = payload;
-        
-        const sessionId = uploadSessionId.includes('upload:') ? uploadSessionId : `upload:${uploadSessionId}`;
-        const uploadUrl = `${settings.graph_api_base_url}/${settings.api_version}/${sessionId}`;
-        
-        // Convert base64 to binary
-        const binaryData = Uint8Array.from(atob(fileData), c => c.charCodeAt(0));
-        
-        const response = await fetch(uploadUrl, {
-          method: 'POST',
-          headers: {
-            'Authorization': `OAuth ${settings.access_token}`,
-            'file_offset': '0',
-            'Content-Type': 'application/octet-stream',
-          },
-          body: binaryData
-        });
+      // Create upload session
+      const formData = new FormData();
+      formData.append('file_length', fileLength.toString());
+      formData.append('file_type', fileType);
+      formData.append('file_name', fileName);
 
-        const result = await response.json();
-        if (result.error) {
-          throw new Error(result.error.message);
-        }
+      const response = await fetch(`https://graph.facebook.com/v21.0/${WHATSAPP_APP_ID}/uploads`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `OAuth ${WHATSAPP_ACCESS_TOKEN}`,
+        },
+        body: formData
+      });
 
-        return new Response(JSON.stringify({ mediaHandle: result.h }), {
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        });
+      const result = await response.json();
+      
+      if (!response.ok) {
+        console.error('❌ Upload session creation failed:', result);
+        throw new Error(result.error?.message || 'Failed to create upload session');
       }
 
-      case 'resumeUpload': {
-        const { uploadSessionId } = payload;
-        
-        const sessionId = uploadSessionId.includes('upload:') ? uploadSessionId : `upload:${uploadSessionId}`;
-        const url = `${settings.graph_api_base_url}/${settings.api_version}/${sessionId}`;
-        
-        const response = await fetch(url, {
-          method: 'GET',
-          headers: {
-            'Authorization': `OAuth ${settings.access_token}`
-          }
-        });
-
-        const result = await response.json();
-        if (result.error) {
-          throw new Error(result.error.message);
-        }
-
-        return new Response(JSON.stringify({ fileOffset: parseInt(result.file_offset || '0') }), {
+      console.log('✅ Upload session created:', result.id);
+      return new Response(
+        JSON.stringify({ uploadSessionId: result.id }),
+        { 
           headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        });
-      }
-
-      default:
-        throw new Error('Invalid action');
+          status: 200 
+        }
+      );
     }
+
+    if (action === 'uploadFileContent') {
+      // Upload file content
+      const binaryData = Uint8Array.from(atob(fileData), c => c.charCodeAt(0));
+      
+      const response = await fetch(`https://graph.facebook.com/v21.0/${uploadSessionId}`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `OAuth ${WHATSAPP_ACCESS_TOKEN}`,
+          'file_offset': (fileOffset || 0).toString(),
+          'Content-Type': 'application/octet-stream',
+        },
+        body: binaryData
+      });
+
+      const result = await response.json();
+      
+      if (!response.ok) {
+        console.error('❌ File upload failed:', result);
+        throw new Error(result.error?.message || 'Failed to upload file content');
+      }
+
+      console.log('✅ File uploaded successfully, handle:', result.h);
+      return new Response(
+        JSON.stringify({ mediaHandle: result.h }),
+        { 
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          status: 200 
+        }
+      );
+    }
+
+    if (action === 'resumeUpload') {
+      // Check upload status and get file offset
+      const response = await fetch(`https://graph.facebook.com/v21.0/${uploadSessionId}`, {
+        method: 'GET',
+        headers: {
+          'Authorization': `OAuth ${WHATSAPP_ACCESS_TOKEN}`,
+        }
+      });
+
+      const result = await response.json();
+      
+      if (!response.ok) {
+        console.error('❌ Resume upload check failed:', result);
+        throw new Error(result.error?.message || 'Failed to check upload status');
+      }
+
+      console.log('✅ Upload status checked, offset:', result.file_offset || 0);
+      return new Response(
+        JSON.stringify({ fileOffset: result.file_offset || 0 }),
+        { 
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          status: 200 
+        }
+      );
+    }
+
+    throw new Error('Invalid action specified');
+    
   } catch (error) {
-    console.error('WhatsApp media upload error:', error);
-    return new Response(JSON.stringify({ error: error.message }), {
-      status: 500,
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-    });
+    console.error('❌ WhatsApp Media Upload Error:', error);
+    return new Response(
+      JSON.stringify({ 
+        error: error.message || 'Internal server error' 
+      }),
+      { 
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        status: 500 
+      }
+    );
   }
 });

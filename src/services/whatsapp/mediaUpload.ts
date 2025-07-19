@@ -1,4 +1,3 @@
-
 import { whatsappConfig } from './config';
 import { supabase } from '@/integrations/supabase/client';
 
@@ -98,9 +97,10 @@ export class WhatsAppMediaUpload {
         throw new Error('No file provided for upload');
       }
 
-      const maxSize = 16 * 1024 * 1024; // 16MB limit
+      // Updated file size limit to match Meta's 100MB limit
+      const maxSize = 100 * 1024 * 1024; // 100MB limit (Meta's actual limit)
       if (file.size > maxSize) {
-        throw new Error('File size exceeds 16MB limit');
+        throw new Error('File size exceeds 100MB limit');
       }
 
       const allowedTypes = ['image/jpeg', 'image/jpg', 'image/png', 'video/mp4', 'application/pdf'];
