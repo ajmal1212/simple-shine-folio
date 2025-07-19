@@ -1,5 +1,4 @@
 
-import React from 'react';
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -18,7 +17,8 @@ import Templates from "./pages/Templates";
 import Flows from "./pages/Flows";
 import ChatbotBuilder from "./pages/ChatbotBuilder";
 import NotFound from "./pages/NotFound";
-import Index from "./pages/Index";
+
+const queryClient = new QueryClient();
 
 const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
   const { user, isLoading } = useAuth();
@@ -44,7 +44,7 @@ const AppRoutes = () => {
   return (
     <Routes>
       <Route path="/login" element={user ? <Navigate to="/dashboard" replace /> : <Login />} />
-      <Route path="/" element={<Index />} />
+      <Route path="/" element={<Navigate to={user ? "/dashboard" : "/login"} replace />} />
       <Route
         path="/dashboard"
         element={
@@ -130,30 +130,18 @@ const AppRoutes = () => {
   );
 };
 
-// Create QueryClient with proper configuration
-const queryClient = new QueryClient({
-  defaultOptions: {
-    queries: {
-      staleTime: 5 * 60 * 1000, // 5 minutes
-      gcTime: 10 * 60 * 1000, // 10 minutes
-    },
-  },
-});
-
-const App: React.FC = () => {
-  return (
-    <QueryClientProvider client={queryClient}>
-      <TooltipProvider>
-        <Toaster />
-        <Sonner />
-        <AuthProvider>
-          <BrowserRouter>
-            <AppRoutes />
-          </BrowserRouter>
-        </AuthProvider>
-      </TooltipProvider>
-    </QueryClientProvider>
-  );
-};
+const App = () => (
+  <QueryClientProvider client={queryClient}>
+    <TooltipProvider>
+      <Toaster />
+      <Sonner />
+      <AuthProvider>
+        <BrowserRouter>
+          <AppRoutes />
+        </BrowserRouter>
+      </AuthProvider>
+    </TooltipProvider>
+  </QueryClientProvider>
+);
 
 export default App;
