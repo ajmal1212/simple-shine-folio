@@ -41,6 +41,7 @@ const CreateCampaign = () => {
   const [contacts, setContacts] = useState<Contact[]>([]);
   const [csvFile, setCsvFile] = useState<File | null>(null);
   const [mediaFile, setMediaFile] = useState<File | null>(null);
+  const [mediaUrl, setMediaUrl] = useState<string>('');
   const [variables, setVariables] = useState<string[]>([]);
 
   useEffect(() => {
@@ -146,10 +147,48 @@ const CreateCampaign = () => {
     });
   };
 
-  const handleMediaUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
+  const handleMediaUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
-    if (file) {
-      setMediaFile(file);
+    if (!file) return;
+
+    setMediaFile(file);
+    
+    try {
+      console.log('Uploading media to Supabase storage...');
+      
+      // Generate unique filename
+      const fileExt = file.name.split('.').pop();
+      const fileName = `${Date.now()}-${Math.random().toString(36).substring(2)}.${fileExt}`;
+      
+      // Upload to Supabase storage
+      const { data, error } = await supabase.storage
+        .from('template-media')
+        .upload(fileName, file);
+
+      if (error) {
+        console.error('Storage upload error:', error);
+        throw error;
+      }
+
+      // Get public URL
+      const { data: { publicUrl } } = supabase.storage
+        .from('template-media')
+        .getPublicUrl(fileName);
+
+      setMediaUrl(publicUrl);
+      console.log('Media uploaded successfully. Public URL:', publicUrl);
+      
+      toast({
+        title: "Success",
+        description: "Media uploaded successfully",
+      });
+    } catch (error) {
+      console.error('Media upload error:', error);
+      toast({
+        title: "Error",
+        description: "Failed to upload media",
+        variant: "destructive",
+      });
     }
   };
 
@@ -194,28 +233,6 @@ const CreateCampaign = () => {
     setLoading(true);
     try {
       const whatsappApi = new WhatsAppAPI();
-      let mediaId = '';
-
-      // Upload media if template has media header and media file is selected
-      if (selectedTemplate.header_type === 'IMAGE' && mediaFile) {
-        try {
-          console.log('Uploading media file for campaign...');
-          mediaId = await whatsappApi.uploadMediaForTemplate(mediaFile);
-          console.log('Media uploaded with ID:', mediaId);
-          toast({
-            title: "Success",
-            description: "Media uploaded successfully",
-          });
-        } catch (error) {
-          console.error('Media upload error:', error);
-          toast({
-            title: "Warning",
-            description: "Failed to upload media. Sending campaign without media header.",
-            variant: "destructive",
-          });
-          // Continue without media instead of failing completely
-        }
-      }
 
       // Send messages to all contacts
       let successCount = 0;
@@ -232,18 +249,18 @@ const CreateCampaign = () => {
           };
 
           // Add components if variables exist or media is available
-          if (variables.length > 0 || mediaId) {
+          if (variables.length > 0 || (selectedTemplate.header_type === 'IMAGE' && mediaUrl)) {
             templateData.components = [];
 
-            // Add header component with media if exists
-            if (selectedTemplate.header_type === 'IMAGE' && mediaId) {
+            // Add header component with media URL if exists
+            if (selectedTemplate.header_type === 'IMAGE' && mediaUrl) {
               templateData.components.push({
                 type: 'header',
                 parameters: [
                   {
                     type: 'image',
                     image: {
-                      id: mediaId
+                      link: mediaUrl
                     }
                   }
                 ]
@@ -505,9 +522,9 @@ const CreateCampaign = () => {
                             {mediaFile ? mediaFile.name : 'Upload Header Image'}
                           </Button>
                         </div>
-                        {mediaFile && (
+                        {mediaUrl && (
                           <p className="text-sm text-green-600">
-                            ✓ Image selected: {mediaFile.name}
+                            ✓ Image uploaded: {mediaUrl}
                           </p>
                         )}
                       </div>
@@ -531,8 +548,8 @@ const CreateCampaign = () => {
                         <p><strong>Name:</strong> {campaignName}</p>
                         <p><strong>Template:</strong> {selectedTemplate?.name}</p>
                         <p><strong>Recipients:</strong> {contacts.length} contacts</p>
-                        {selectedTemplate?.header_type === 'IMAGE' && mediaFile && (
-                          <p><strong>Media:</strong> {mediaFile.name}</p>
+                        {selectedTemplate?.header_type === 'IMAGE' && mediaUrl && (
+                          <p><strong>Media URL:</strong> {mediaUrl}</p>
                         )}
                       </div>
                     </div>
