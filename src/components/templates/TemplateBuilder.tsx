@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Save, ArrowLeft, AlertCircle } from 'lucide-react';
+import { Save, ArrowLeft, AlertCircle, RefreshCw } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -67,7 +67,7 @@ export const TemplateBuilder: React.FC<TemplateBuilderProps> = ({ onSave, onCanc
     setIsUploading(true);
     setUploadError('');
     setUploadSessionId('');
-    setUploadStatus('Validating file...');
+    setUploadStatus('Starting upload process...');
     
     try {
       // Validate file
@@ -81,21 +81,21 @@ export const TemplateBuilder: React.FC<TemplateBuilderProps> = ({ onSave, onCanc
         throw new Error(`File type ${file.type} not supported. Use: ${allowedTypes.join(', ')}`);
       }
 
-      // Step 1: Create upload session
       setUploadStatus('Step 1/2: Creating upload session...');
+      
+      // Step 1: Create upload session
       const sessionId = await whatsappApi.createMediaUploadSession(file);
       console.log('Upload session created:', sessionId);
       setUploadSessionId(sessionId);
-      setUploadStatus('Step 1/2: Upload session created ✓');
+      setUploadStatus('✅ Step 1/2: Upload session created');
       
       // Brief delay to show progress
-      await new Promise(resolve => setTimeout(resolve, 500));
+      await new Promise(resolve => setTimeout(resolve, 1000));
       
       // Step 2: Upload file content
       setUploadStatus('Step 2/2: Uploading file content...');
       const mediaHandle = await whatsappApi.uploadFileContent(sessionId, file);
       console.log('Media handle received:', mediaHandle);
-      setUploadStatus('Step 2/2: File uploaded successfully ✓');
       
       // Update template with file and handle
       setTemplate(prev => ({
@@ -105,24 +105,23 @@ export const TemplateBuilder: React.FC<TemplateBuilderProps> = ({ onSave, onCanc
         header_handle: mediaHandle
       }));
       
-      setUploadStatus('Upload completed! Media handle generated.');
+      setUploadStatus('✅ Upload completed successfully!');
       toast({
         title: "Success",
-        description: "Media uploaded and ready for template creation",
+        description: "Media uploaded successfully and ready for template creation",
       });
+      
+      // Clear status after a few seconds
+      setTimeout(() => {
+        setUploadStatus('');
+      }, 3000);
       
     } catch (error) {
       console.error('Media upload failed:', error);
       const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
       
-      // Check if we can resume the upload
-      if (uploadSessionId && errorMessage.includes('Network error')) {
-        setUploadStatus('Upload interrupted. You can try to resume...');
-        setUploadError(`${errorMessage} - Session ID: ${uploadSessionId}`);
-      } else {
-        setUploadError(errorMessage);
-        setUploadStatus('Upload failed');
-      }
+      setUploadError(errorMessage);
+      setUploadStatus('❌ Upload failed');
       
       toast({
         title: "Upload Failed",
@@ -160,7 +159,7 @@ export const TemplateBuilder: React.FC<TemplateBuilderProps> = ({ onSave, onCanc
           header_handle: mediaHandle
         }));
         
-        setUploadStatus('Upload completed! Media handle generated.');
+        setUploadStatus('✅ Upload completed successfully!');
         toast({
           title: "Success",
           description: "Upload resumed and completed successfully",
@@ -174,7 +173,7 @@ export const TemplateBuilder: React.FC<TemplateBuilderProps> = ({ onSave, onCanc
           header_handle: mediaHandle
         }));
         
-        setUploadStatus('Upload resumed and completed! Media handle generated.');
+        setUploadStatus('✅ Upload resumed and completed successfully!');
         toast({
           title: "Success",
           description: "Upload resumed and completed successfully",
@@ -182,11 +181,17 @@ export const TemplateBuilder: React.FC<TemplateBuilderProps> = ({ onSave, onCanc
       }
       
       setUploadSessionId('');
+      
+      // Clear status after a few seconds
+      setTimeout(() => {
+        setUploadStatus('');
+      }, 3000);
+      
     } catch (error) {
       console.error('Resume upload failed:', error);
       const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
       setUploadError(errorMessage);
-      setUploadStatus('Resume failed');
+      setUploadStatus('❌ Resume failed');
       
       toast({
         title: "Resume Failed",
@@ -516,20 +521,24 @@ export const TemplateBuilder: React.FC<TemplateBuilderProps> = ({ onSave, onCanc
                             className="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-green-50 file:text-green-700 hover:file:bg-green-100 disabled:opacity-50"
                           />
                           
-                          {/* Upload Status */}
-                          {uploadStatus && (
-                            <div className="p-3 bg-gray-50 rounded-lg">
+                          {/* Enhanced Upload Status Display */}
+                          {(uploadStatus || uploadError) && (
+                            <div className={`p-4 rounded-lg border ${
+                              uploadError ? 'bg-red-50 border-red-200' : 
+                              uploadStatus.includes('✅') ? 'bg-green-50 border-green-200' : 
+                              'bg-blue-50 border-blue-200'
+                            }`}>
                               <div className="flex items-center justify-between">
                                 <div className="flex items-center space-x-2">
                                   {isUploading && (
                                     <div className="w-4 h-4 border-2 border-blue-600 border-t-transparent rounded-full animate-spin"></div>
                                   )}
-                                  <p className={`text-sm ${
-                                    uploadError ? 'text-red-600' : 
-                                    uploadStatus.includes('✓') ? 'text-green-600' : 
-                                    'text-blue-600'
+                                  <p className={`text-sm font-medium ${
+                                    uploadError ? 'text-red-700' : 
+                                    uploadStatus.includes('✅') ? 'text-green-700' : 
+                                    'text-blue-700'
                                   }`}>
-                                    {uploadStatus}
+                                    {uploadStatus || uploadError}
                                   </p>
                                 </div>
                                 
@@ -540,23 +549,21 @@ export const TemplateBuilder: React.FC<TemplateBuilderProps> = ({ onSave, onCanc
                                     variant="outline"
                                     onClick={handleResumeUpload}
                                     disabled={isUploading}
-                                    className="text-xs"
+                                    className="text-xs h-8"
                                   >
+                                    <RefreshCw className="w-3 h-3 mr-1" />
                                     Resume Upload
                                   </Button>
                                 )}
                               </div>
+                              
+                              {/* Show upload session ID for debugging */}
+                              {uploadSessionId && (
+                                <p className="text-xs text-gray-500 mt-2 break-all">
+                                  Session ID: {uploadSessionId}
+                                </p>
+                              )}
                             </div>
-                          )}
-
-                          {/* Upload Error */}
-                          {uploadError && (
-                            <Alert variant="destructive">
-                              <AlertCircle className="h-4 w-4" />
-                              <AlertDescription>
-                                {uploadError}
-                              </AlertDescription>
-                            </Alert>
                           )}
                           
                           {/* Show preview and header handle */}
