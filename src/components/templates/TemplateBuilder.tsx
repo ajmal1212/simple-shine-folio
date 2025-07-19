@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect } from 'react';
-import { Save, ArrowLeft } from 'lucide-react';
+import { Save, ArrowLeft, AlertCircle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -8,6 +8,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { ScrollArea } from '@/components/ui/scroll-area';
+import { Alert, AlertDescription } from '@/components/ui/alert';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
 import { TemplatePreview } from './TemplatePreview';
@@ -42,6 +43,7 @@ export const TemplateBuilder: React.FC<TemplateBuilderProps> = ({ onSave, onCanc
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [uploadStatus, setUploadStatus] = useState<string>('');
   const [isUploading, setIsUploading] = useState(false);
+  const [uploadError, setUploadError] = useState<string>('');
 
   useEffect(() => {
     if (editTemplate) {
@@ -63,20 +65,35 @@ export const TemplateBuilder: React.FC<TemplateBuilderProps> = ({ onSave, onCanc
 
   const handleMediaUpload = async (file: File) => {
     setIsUploading(true);
-    setUploadStatus('Starting upload process...');
+    setUploadError('');
+    setUploadStatus('Validating file...');
     
     try {
+      // Validate file
+      const maxSize = 16 * 1024 * 1024; // 16MB
+      if (file.size > maxSize) {
+        throw new Error('File size must be less than 16MB');
+      }
+
+      const allowedTypes = ['image/jpeg', 'image/jpg', 'image/png', 'video/mp4', 'application/pdf'];
+      if (!allowedTypes.includes(file.type)) {
+        throw new Error(`File type ${file.type} not supported. Use: ${allowedTypes.join(', ')}`);
+      }
+
       // Step 1: Create upload session
-      setUploadStatus('Step 1: Creating upload session...');
+      setUploadStatus('Step 1/2: Creating upload session...');
       const sessionId = await whatsappApi.createMediaUploadSession(file);
       console.log('Upload session created:', sessionId);
-      setUploadStatus(`Step 1 Complete: Session ID received`);
+      setUploadStatus('Step 1/2: Upload session created ✓');
+      
+      // Brief delay to show progress
+      await new Promise(resolve => setTimeout(resolve, 500));
       
       // Step 2: Upload file content
-      setUploadStatus('Step 2: Uploading file content...');
+      setUploadStatus('Step 2/2: Uploading file content...');
       const mediaHandle = await whatsappApi.uploadFileContent(sessionId, file);
       console.log('Media handle received:', mediaHandle);
-      setUploadStatus(`Step 2 Complete: Media handle received`);
+      setUploadStatus('Step 2/2: File uploaded successfully ✓');
       
       // Update template with file and handle
       setTemplate(prev => ({
@@ -86,18 +103,20 @@ export const TemplateBuilder: React.FC<TemplateBuilderProps> = ({ onSave, onCanc
         header_handle: mediaHandle
       }));
       
-      setUploadStatus('Upload completed successfully!');
+      setUploadStatus('Upload completed! Media handle generated.');
       toast({
         title: "Success",
-        description: "Media uploaded successfully",
+        description: "Media uploaded and ready for template creation",
       });
       
     } catch (error) {
       console.error('Media upload failed:', error);
-      setUploadStatus(`Upload failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
+      setUploadError(errorMessage);
+      setUploadStatus('Upload failed');
       toast({
-        title: "Error",
-        description: "Failed to upload media",
+        title: "Upload Failed",
+        description: errorMessage,
         variant: "destructive"
       });
     } finally {
@@ -363,7 +382,7 @@ export const TemplateBuilder: React.FC<TemplateBuilderProps> = ({ onSave, onCanc
                 </CardContent>
               </Card>
 
-              {/* Header with proper media upload */}
+              {/* Header with improved media upload */}
               <Card>
                 <CardHeader>
                   <CardTitle className="text-base">Header (Optional)</CardTitle>
@@ -408,7 +427,7 @@ export const TemplateBuilder: React.FC<TemplateBuilderProps> = ({ onSave, onCanc
                           />
                         </div>
                       ) : (
-                        <div>
+                        <div className="space-y-3">
                           <Label className="text-sm">Upload {template.header_type}</Label>
                           <input
                             type="file"
@@ -425,18 +444,37 @@ export const TemplateBuilder: React.FC<TemplateBuilderProps> = ({ onSave, onCanc
                           
                           {/* Upload Status */}
                           {uploadStatus && (
-                            <div className="mt-2 p-2 bg-gray-50 rounded text-xs">
-                              <p className={isUploading ? 'text-blue-600' : uploadStatus.includes('failed') ? 'text-red-600' : 'text-green-600'}>
-                                {uploadStatus}
-                              </p>
+                            <div className="p-3 bg-gray-50 rounded-lg">
+                              <div className="flex items-center space-x-2">
+                                {isUploading && (
+                                  <div className="w-4 h-4 border-2 border-blue-600 border-t-transparent rounded-full animate-spin"></div>
+                                )}
+                                <p className={`text-sm ${
+                                  uploadError ? 'text-red-600' : 
+                                  uploadStatus.includes('✓') ? 'text-green-600' : 
+                                  'text-blue-600'
+                                }`}>
+                                  {uploadStatus}
+                                </p>
+                              </div>
                             </div>
+                          )}
+
+                          {/* Upload Error */}
+                          {uploadError && (
+                            <Alert variant="destructive">
+                              <AlertCircle className="h-4 w-4" />
+                              <AlertDescription>
+                                {uploadError}
+                              </AlertDescription>
+                            </Alert>
                           )}
                           
                           {/* Show preview and header handle */}
                           {template.header_content && (
-                            <div className="mt-2 space-y-2">
+                            <div className="space-y-2">
                               {template.header_type === 'IMAGE' && (
-                                <img src={template.header_content} alt="Header preview" className="max-w-32 max-h-32 object-cover rounded" />
+                                <img src={template.header_content} alt="Header preview" className="max-w-32 max-h-32 object-cover rounded border" />
                               )}
                               <p className="text-xs text-gray-500">
                                 {template.header_media_file ? `File: ${template.header_media_file.name}` : 'Preview'}
@@ -446,12 +484,12 @@ export const TemplateBuilder: React.FC<TemplateBuilderProps> = ({ onSave, onCanc
                           
                           {/* Header Handle Display */}
                           {template.header_handle && (
-                            <div className="mt-3 p-3 bg-green-50 border border-green-200 rounded">
-                              <Label className="text-xs font-medium text-green-800">Header Handle (Ready for WhatsApp):</Label>
-                              <div className="mt-1 p-2 bg-white border rounded text-xs font-mono break-all text-green-700">
+                            <div className="p-4 bg-green-50 border border-green-200 rounded-lg">
+                              <Label className="text-sm font-medium text-green-800">Header Handle (Ready for WhatsApp):</Label>
+                              <div className="mt-2 p-3 bg-white border rounded text-xs font-mono break-all text-green-700 max-h-20 overflow-y-auto">
                                 {template.header_handle}
                               </div>
-                              <p className="text-xs text-green-600 mt-1">✅ Media uploaded successfully and ready for template submission</p>
+                              <p className="text-xs text-green-600 mt-2">✅ Media uploaded successfully and ready for template submission</p>
                             </div>
                           )}
                         </div>

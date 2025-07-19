@@ -32,7 +32,7 @@ export class WhatsAppAPI {
     }
   }
 
-  // New method for template media upload - Step 1: Create upload session
+  // Refactored method for template media upload - Step 1: Create upload session
   async createMediaUploadSession(file: File): Promise<string> {
     if (!this.settings) {
       await this.loadSettings();
@@ -53,7 +53,8 @@ export class WhatsAppAPI {
       formData.append('file_type', file.type);
       formData.append('access_token', this.settings.access_token);
 
-      console.log('Creating upload session:', { 
+      console.log('Creating upload session with data:', { 
+        url,
         name: file.name, 
         size: file.size, 
         type: file.type 
@@ -64,12 +65,18 @@ export class WhatsAppAPI {
         body: formData
       });
 
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error('❌ Upload session HTTP error:', response.status, errorText);
+        throw new Error(`HTTP ${response.status}: ${errorText}`);
+      }
+
       const result = await response.json();
       console.log('Upload session response:', result);
       
       if (result.error) {
         console.error('❌ Upload session creation error:', result.error);
-        throw new Error(`Upload session error: ${result.error.message}`);
+        throw new Error(`Upload session error: ${result.error.message || JSON.stringify(result.error)}`);
       }
 
       if (!result.id) {
@@ -80,11 +87,14 @@ export class WhatsAppAPI {
       return result.id;
     } catch (error) {
       console.error('❌ Upload session creation failed:', error);
+      if (error instanceof TypeError && error.message === 'Failed to fetch') {
+        throw new Error('Network error: Unable to connect to WhatsApp API. Please check your internet connection and WhatsApp settings.');
+      }
       throw error;
     }
   }
 
-  // New method for template media upload - Step 2: Upload file content
+  // Refactored method for template media upload - Step 2: Upload file content
   async uploadFileContent(uploadSessionId: string, file: File): Promise<string> {
     if (!this.settings) {
       await this.loadSettings();
@@ -93,10 +103,12 @@ export class WhatsAppAPI {
     try {
       console.log('📤 Uploading file content to session:', uploadSessionId);
       
-      // Use the full upload session URL directly
-      const url = uploadSessionId;
+      // The uploadSessionId is already the complete URL from Meta's response
+      const uploadUrl = `${this.settings.graph_api_base_url}/${this.settings.api_version}/${uploadSessionId}`;
       
-      const response = await fetch(url, {
+      console.log('Upload URL:', uploadUrl);
+      
+      const response = await fetch(uploadUrl, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${this.settings.access_token}`,
@@ -105,12 +117,18 @@ export class WhatsAppAPI {
         body: file
       });
 
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error('❌ File upload HTTP error:', response.status, errorText);
+        throw new Error(`HTTP ${response.status}: ${errorText}`);
+      }
+
       const result = await response.json();
       console.log('File upload response:', result);
       
       if (result.error) {
         console.error('❌ File upload error:', result.error);
-        throw new Error(`File upload error: ${result.error.message}`);
+        throw new Error(`File upload error: ${result.error.message || JSON.stringify(result.error)}`);
       }
 
       if (!result.h) {
@@ -121,14 +139,32 @@ export class WhatsAppAPI {
       return result.h;
     } catch (error) {
       console.error('❌ File upload failed:', error);
+      if (error instanceof TypeError && error.message === 'Failed to fetch') {
+        throw new Error('Network error: Unable to upload file to WhatsApp API. Please check your internet connection.');
+      }
       throw error;
     }
   }
 
-  // Combined method for template media upload
+  // Combined method for template media upload with better error handling
   async uploadMediaForTemplate(file: File): Promise<string> {
     try {
       console.log('📤 Starting template media upload process...');
+      
+      // Validate file before upload
+      if (!file) {
+        throw new Error('No file provided for upload');
+      }
+
+      const maxSize = 16 * 1024 * 1024; // 16MB limit
+      if (file.size > maxSize) {
+        throw new Error('File size exceeds 16MB limit');
+      }
+
+      const allowedTypes = ['image/jpeg', 'image/jpg', 'image/png', 'video/mp4', 'application/pdf'];
+      if (!allowedTypes.includes(file.type)) {
+        throw new Error(`File type ${file.type} is not supported. Allowed types: ${allowedTypes.join(', ')}`);
+      }
       
       // Step 1: Create upload session
       const uploadSessionId = await this.createMediaUploadSession(file);
