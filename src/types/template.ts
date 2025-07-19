@@ -13,6 +13,7 @@ export interface ButtonComponent {
 export interface Variable {
   name: string;
   sample: string;
+  [key: string]: any; // Add index signature to make it compatible with Json type
 }
 
 export interface Template {

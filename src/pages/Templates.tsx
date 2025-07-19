@@ -83,20 +83,18 @@ const Templates = () => {
     const matches = text.match(/\{\{\d+\}\}/g);
     
     if (matches) {
-      matches.forEach((match) => {
-        const number = match.replace(/[{}]/g, '');
-        const variableIndex = parseInt(number) - 1;
-        
-        if (!variables[variableIndex]) {
-          variables[variableIndex] = {
-            name: `variable_${number}`,
-            sample: `Sample ${number}`
-          };
-        }
+      const uniqueNumbers = [...new Set(matches.map(match => parseInt(match.replace(/[{}]/g, ''))))];
+      uniqueNumbers.sort((a, b) => a - b);
+      
+      uniqueNumbers.forEach((number) => {
+        variables.push({
+          name: `variable_${number}`,
+          sample: `Sample ${number}`
+        });
       });
     }
     
-    return variables.filter(Boolean); // Remove any undefined elements
+    return variables;
   };
 
   const syncWhatsAppTemplates = async () => {
@@ -178,11 +176,10 @@ const Templates = () => {
               const { data: { user } } = await supabase.auth.getUser();
               if (!user) throw new Error('User not authenticated');
 
-              // Insert template into database with proper language code
+              // Insert template into database with proper language code - cast variables to Json
               const { error: insertError } = await supabase
                 .from('whatsapp_templates')
                 .insert({
-                  user_id: user.id,
                   name: template.name,
                   category: template.category || 'MARKETING',
                   language: template.language || 'en_US',
@@ -191,7 +188,7 @@ const Templates = () => {
                   body_text: bodyText,
                   footer_text: footerText,
                   buttons: buttons.length > 0 ? buttons : null,
-                  variables: uniqueVariables.length > 0 ? uniqueVariables : null,
+                  variables: uniqueVariables.length > 0 ? uniqueVariables as any : null,
                   status: template.status || 'APPROVED',
                   whatsapp_template_id: template.id
                 });
