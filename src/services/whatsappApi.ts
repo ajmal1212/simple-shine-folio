@@ -1,4 +1,3 @@
-
 import { supabase } from '@/integrations/supabase/client';
 
 interface WhatsAppSettings {
@@ -33,21 +32,21 @@ export class WhatsAppAPI {
     }
   }
 
-  // Media upload for templates - must use WABA_ID for template media
+  // Media upload for templates - try PHONE_NUMBER_ID first, then WABA_ID as fallback
   async uploadMediaForTemplate(file: File): Promise<string> {
     if (!this.settings) {
       await this.loadSettings();
     }
 
-    if (!this.settings?.waba_id) {
-      throw new Error('WhatsApp Business Account ID not configured');
+    if (!this.settings?.phone_number_id) {
+      throw new Error('Phone Number ID not configured');
     }
 
     try {
-      console.log('📤 Uploading media for template using WABA_ID...');
+      console.log('📤 Uploading media for template using PHONE_NUMBER_ID...');
       
-      // Use WABA_ID for template media - templates require media uploaded to WABA endpoint
-      const url = `${this.settings.graph_api_base_url}/${this.settings.api_version}/${this.settings.waba_id}/media`;
+      // Try PHONE_NUMBER_ID first - this is the standard endpoint for media uploads
+      const url = `${this.settings.graph_api_base_url}/${this.settings.api_version}/${this.settings.phone_number_id}/media`;
       
       const formData = new FormData();
       formData.append('file', file);
@@ -325,13 +324,24 @@ export class WhatsAppAPI {
       template: templateData
     };
 
+    console.log('Sending template to:', to);
+    console.log('Template data:', JSON.stringify(templateData, null, 2));
+
     const response = await fetch(url, {
       method: 'POST',
       headers: this.getHeaders(),
       body: JSON.stringify(body)
     });
 
-    return await response.json();
+    const result = await response.json();
+    console.log('Send template response:', result);
+    
+    if (result.error) {
+      console.error('Template send error:', result.error);
+      throw new Error(`Failed to send template: ${result.error.message}`);
+    }
+
+    return result;
   }
 
   async sendButtonMessage(to: string, text: string, buttons: Array<{id: string, title: string}>): Promise<any> {

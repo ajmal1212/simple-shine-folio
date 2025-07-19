@@ -194,12 +194,14 @@ const CreateCampaign = () => {
     setLoading(true);
     try {
       const whatsappApi = new WhatsAppAPI();
-      let mediaUrl = '';
+      let mediaId = '';
 
       // Upload media if template has media header and media file is selected
       if (selectedTemplate.header_type === 'IMAGE' && mediaFile) {
         try {
-          mediaUrl = await whatsappApi.uploadMediaForTemplate(mediaFile);
+          console.log('Uploading media file for campaign...');
+          mediaId = await whatsappApi.uploadMediaForTemplate(mediaFile);
+          console.log('Media uploaded with ID:', mediaId);
           toast({
             title: "Success",
             description: "Media uploaded successfully",
@@ -207,12 +209,11 @@ const CreateCampaign = () => {
         } catch (error) {
           console.error('Media upload error:', error);
           toast({
-            title: "Error",
-            description: "Failed to upload media",
+            title: "Warning",
+            description: "Failed to upload media. Sending campaign without media header.",
             variant: "destructive",
           });
-          setLoading(false);
-          return;
+          // Continue without media instead of failing completely
         }
       }
 
@@ -230,19 +231,19 @@ const CreateCampaign = () => {
             }
           };
 
-          // Add components if variables exist
-          if (variables.length > 0 || mediaUrl) {
+          // Add components if variables exist or media is available
+          if (variables.length > 0 || mediaId) {
             templateData.components = [];
 
             // Add header component with media if exists
-            if (selectedTemplate.header_type === 'IMAGE' && mediaUrl) {
+            if (selectedTemplate.header_type === 'IMAGE' && mediaId) {
               templateData.components.push({
                 type: 'header',
                 parameters: [
                   {
                     type: 'image',
                     image: {
-                      link: mediaUrl
+                      id: mediaId
                     }
                   }
                 ]
@@ -263,6 +264,7 @@ const CreateCampaign = () => {
             }
           }
 
+          console.log(`Sending template to ${contact.phone_number}:`, templateData);
           await whatsappApi.sendTemplate(contact.phone_number, templateData);
           successCount++;
         } catch (error) {
