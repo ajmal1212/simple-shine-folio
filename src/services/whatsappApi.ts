@@ -33,21 +33,21 @@ export class WhatsAppAPI {
     }
   }
 
-  // Media upload following official WhatsApp documentation
+  // Media upload for templates - must use WABA_ID for template media
   async uploadMediaForTemplate(file: File): Promise<string> {
     if (!this.settings) {
       await this.loadSettings();
     }
 
-    if (!this.settings?.phone_number_id) {
-      throw new Error('WhatsApp Phone Number ID not configured');
+    if (!this.settings?.waba_id) {
+      throw new Error('WhatsApp Business Account ID not configured');
     }
 
     try {
-      console.log('📤 Uploading media following official WhatsApp documentation...');
+      console.log('📤 Uploading media for template using WABA_ID...');
       
-      // Use PHONE_NUMBER_ID as per official documentation
-      const url = `${this.settings.graph_api_base_url}/${this.settings.api_version}/${this.settings.phone_number_id}/media`;
+      // Use WABA_ID for template media - templates require media uploaded to WABA endpoint
+      const url = `${this.settings.graph_api_base_url}/${this.settings.api_version}/${this.settings.waba_id}/media`;
       
       const formData = new FormData();
       formData.append('file', file);
