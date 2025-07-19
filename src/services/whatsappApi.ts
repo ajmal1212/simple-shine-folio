@@ -1,3 +1,4 @@
+
 import { supabase } from '@/integrations/supabase/client';
 
 interface WhatsAppSettings {
@@ -93,7 +94,8 @@ export class WhatsAppAPI {
     try {
       console.log('📤 Uploading file content to session:', uploadSessionId);
       
-      const url = `${this.settings.graph_api_base_url}/${this.settings.api_version}/${uploadSessionId}`;
+      // Use the full upload session URL directly
+      const url = uploadSessionId;
       
       const response = await fetch(url, {
         method: 'POST',
