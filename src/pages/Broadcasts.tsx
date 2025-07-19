@@ -1,5 +1,6 @@
 
 import React from 'react';
+import { useNavigate } from 'react-router-dom';
 import { Bell, Plus, Send, Users, Calendar, BarChart } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -7,6 +8,8 @@ import { Badge } from '@/components/ui/badge';
 import { DashboardLayout } from '@/components/layout/DashboardLayout';
 
 const Broadcasts = () => {
+  const navigate = useNavigate();
+  
   const campaigns = [
     {
       id: '1',
@@ -63,7 +66,11 @@ const Broadcasts = () => {
             <p className="text-gray-600 mt-2">Send WhatsApp template messages to multiple contacts</p>
           </div>
           
-          <Button size="sm" className="whatsapp-green hover:bg-green-600">
+          <Button 
+            size="sm" 
+            className="whatsapp-green hover:bg-green-600"
+            onClick={() => navigate('/broadcasts/create')}
+          >
             <Plus className="w-4 h-4 mr-2" />
             Create Campaign
           </Button>
@@ -201,7 +208,10 @@ const Broadcasts = () => {
         <div className="mt-8">
           <h3 className="text-lg font-semibold text-gray-900 mb-4">Quick Actions</h3>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-            <Card className="border-0 shadow-sm hover:shadow-md transition-shadow cursor-pointer">
+            <Card 
+              className="border-0 shadow-sm hover:shadow-md transition-shadow cursor-pointer"
+              onClick={() => navigate('/broadcasts/create')}
+            >
               <CardContent className="p-6 text-center">
                 <div className="w-12 h-12 whatsapp-green rounded-xl flex items-center justify-center mx-auto mb-4">
                   <Plus className="w-6 h-6 text-white" />

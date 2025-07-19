@@ -312,6 +312,28 @@ export class WhatsAppAPI {
     return await response.json();
   }
 
+  async sendTemplate(to: string, templateData: any): Promise<any> {
+    if (!this.settings) {
+      await this.loadSettings();
+    }
+
+    const url = this.getApiUrl('messages');
+    const body = {
+      messaging_product: 'whatsapp',
+      to: to,
+      type: 'template',
+      template: templateData
+    };
+
+    const response = await fetch(url, {
+      method: 'POST',
+      headers: this.getHeaders(),
+      body: JSON.stringify(body)
+    });
+
+    return await response.json();
+  }
+
   async sendButtonMessage(to: string, text: string, buttons: Array<{id: string, title: string}>): Promise<any> {
     if (!this.settings) {
       await this.loadSettings();

@@ -10,6 +10,7 @@ import Dashboard from "./pages/Dashboard";
 import Inbox from "./pages/Inbox";
 import Contacts from "./pages/Contacts";
 import Broadcasts from "./pages/Broadcasts";
+import CreateCampaign from "./pages/CreateCampaign";
 import Automations from "./pages/Automations";
 import Team from "./pages/Team";
 import Settings from "./pages/Settings";
@@ -74,6 +75,14 @@ const AppRoutes = () => {
         element={
           <ProtectedRoute>
             <Broadcasts />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/broadcasts/create"
+        element={
+          <ProtectedRoute>
+            <CreateCampaign />
           </ProtectedRoute>
         }
       />
