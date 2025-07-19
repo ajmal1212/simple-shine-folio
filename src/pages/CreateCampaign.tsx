@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { ArrowLeft, ArrowRight, Upload, FileText, Send, Image } from 'lucide-react';
@@ -8,6 +9,7 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
 import { DashboardLayout } from '@/components/layout/DashboardLayout';
+import { ContactsDataTable } from '@/components/campaigns/ContactsDataTable';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { WhatsAppAPI } from '@/services/whatsappApi';
@@ -269,10 +271,14 @@ const CreateCampaign = () => {
 
             // Add body component with variables if exists
             if (variables.length > 0) {
-              const bodyParameters = variables.map(variable => ({
-                type: 'text',
-                text: contact.variables?.[variable] || variable
-              }));
+              const bodyParameters = variables.map(variable => {
+                // Get the actual value from contact variables, not the placeholder
+                const actualValue = contact.variables?.[variable] || variable;
+                return {
+                  type: 'text',
+                  text: actualValue
+                };
+              });
 
               templateData.components.push({
                 type: 'body',
@@ -321,7 +327,7 @@ const CreateCampaign = () => {
   return (
     <DashboardLayout>
       <div className="p-8 h-full overflow-y-auto">
-        <div className="max-w-4xl mx-auto">
+        <div className="max-w-6xl mx-auto">
           {/* Header */}
           <div className="flex items-center justify-between mb-8">
             <div className="flex items-center space-x-4">
@@ -486,19 +492,13 @@ const CreateCampaign = () => {
                       </div>
                     )}
 
+                    {/* Display contacts in modern table view */}
                     {contacts.length > 0 && (
-                      <div className="p-4 bg-green-50 rounded-lg">
-                        <h3 className="font-medium text-green-900 mb-2">
-                          {contacts.length} Contacts Loaded
-                        </h3>
-                        <div className="text-sm text-green-800">
-                          <p>Sample contact:</p>
-                          <p>Phone: {contacts[0].phone_number}</p>
-                          {Object.keys(contacts[0].variables || {}).length > 0 && (
-                            <p>Variables: {JSON.stringify(contacts[0].variables)}</p>
-                          )}
-                        </div>
-                      </div>
+                      <ContactsDataTable
+                        contacts={contacts}
+                        variables={variables}
+                        onContactsUpdate={setContacts}
+                      />
                     )}
 
                     {/* Media Upload for Templates with Image Header */}
