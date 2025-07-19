@@ -1,4 +1,3 @@
-
 import { supabase } from '@/integrations/supabase/client';
 
 interface WhatsAppSettings {
@@ -537,7 +536,7 @@ export class WhatsAppAPI {
       components: []
     };
 
-    // Add header component with proper media handling using the new upload flow
+    // Add header component with proper media handling using header handle
     if (template.header_type && template.header_type !== 'NONE' && template.header_content) {
       const headerComponent: any = {
         type: 'HEADER',
@@ -555,13 +554,18 @@ export class WhatsAppAPI {
           };
         }
       } else if (template.header_type === 'IMAGE' || template.header_type === 'DOCUMENT' || template.header_type === 'VIDEO') {
-        // For media headers, upload file using the new flow and get media handle
-        if (template.header_media_file && template.header_media_file instanceof File) {
+        // Use the header handle directly if available
+        if (template.header_handle || template.header_media_handle) {
+          headerComponent.example = {
+            header_handle: [template.header_handle || template.header_media_handle]
+          };
+          console.log('✅ Using header handle for media:', template.header_handle || template.header_media_handle);
+        } else if (template.header_media_file && template.header_media_file instanceof File) {
+          // Fallback to upload if no handle is available
           try {
             console.log('📤 Uploading media file for header using new flow...');
             const mediaHandle = await this.uploadMediaForTemplate(template.header_media_file);
             
-            // Use the media handle in the template
             headerComponent.example = {
               header_handle: [mediaHandle]
             };
@@ -571,14 +575,8 @@ export class WhatsAppAPI {
             console.error('❌ Failed to upload media for header:', error);
             throw new Error(`Failed to upload header media: ${error instanceof Error ? error.message : 'Unknown error'}`);
           }
-        } else if (template.header_content && !template.header_content.startsWith('blob:')) {
-          // If it's already a media handle/URL, use it directly
-          headerComponent.example = {
-            header_handle: [template.header_content]
-          };
         } else {
-          // Skip media header if no valid media is provided
-          console.warn('⚠️ Skipping media header - no valid media file or handle provided');
+          console.warn('⚠️ Skipping media header - no valid media handle or file provided');
         }
       }
 
