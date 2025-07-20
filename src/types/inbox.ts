@@ -33,4 +33,9 @@ export interface Template {
   name: string;
   body_text: string;
   language: string;
+  header_type?: string;
+  header_content?: string;
+  footer_text?: string;
+  buttons?: any[];
+  variables?: any[];
 }

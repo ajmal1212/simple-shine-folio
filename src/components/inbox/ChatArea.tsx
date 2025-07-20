@@ -25,6 +25,7 @@ interface ChatAreaProps {
   onSendTemplate: () => void;
   onTemplateDialogOpenChange: (open: boolean) => void;
   onMessageSent: () => void;
+  onSendTemplateWithVariables: (templateId: string, variables?: string[], headerMedia?: File) => Promise<void>;
 }
 
 export const ChatArea: React.FC<ChatAreaProps> = ({
@@ -41,6 +42,7 @@ export const ChatArea: React.FC<ChatAreaProps> = ({
   onSendTemplate,
   onTemplateDialogOpenChange,
   onMessageSent,
+  onSendTemplateWithVariables,
 }) => {
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const scrollAreaRef = useRef<HTMLDivElement>(null);
@@ -90,7 +92,6 @@ export const ChatArea: React.FC<ChatAreaProps> = ({
   };
 
   const handleSendTemplateMessage = async (templateId: string, variables?: string[], headerMedia?: File) => {
-    // This will be handled by the parent component through a new prop
     if (onSendTemplateWithVariables) {
       await onSendTemplateWithVariables(templateId, variables, headerMedia);
       onMessageSent();
