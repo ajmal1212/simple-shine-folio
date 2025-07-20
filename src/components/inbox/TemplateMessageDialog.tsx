@@ -183,6 +183,13 @@ export const TemplateMessageDialog: React.FC<TemplateMessageDialogProps> = ({
     );
   };
 
+  const getAcceptAttribute = () => {
+    const headerType = selectedTemplateData?.header_type;
+    if (headerType === 'IMAGE') return 'image/*';
+    if (headerType === 'VIDEO') return 'video/*';
+    return '*/*';
+  };
+
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
       <DialogContent className="max-w-md">
@@ -217,7 +224,7 @@ export const TemplateMessageDialog: React.FC<TemplateMessageDialogProps> = ({
               <Label>Template Variables</Label>
               {variables.map((variable, index) => (
                 <div key={index}>
-                  <Label className="text-sm">Variable {{index + 1}}</Label>
+                  <Label className="text-sm">Variable {index + 1}</Label>
                   <Input
                     value={variable}
                     onChange={(e) => handleVariableChange(index, e.target.value)}
@@ -259,8 +266,7 @@ export const TemplateMessageDialog: React.FC<TemplateMessageDialogProps> = ({
                 ref={fileInputRef}
                 type="file"
                 onChange={handleFileSelect}
-                accept={selectedTemplateData.header_type === 'IMAGE' ? 'image/*' : 
-                       selectedTemplateData.header_type === 'VIDEO' ? 'video/*' : '*/*'}
+                accept={getAcceptAttribute()}
                 className="hidden"
               />
             </div>
