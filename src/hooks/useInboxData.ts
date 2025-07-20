@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
@@ -75,7 +74,17 @@ export const useInboxData = () => {
         .order('name');
 
       if (error) throw error;
-      setTemplates(data || []);
+      
+      // Transform the data to match our Template interface
+      const transformedTemplates = (data || []).map(template => ({
+        ...template,
+        buttons: Array.isArray(template.buttons) ? template.buttons : 
+                template.buttons ? JSON.parse(template.buttons as string) : [],
+        variables: Array.isArray(template.variables) ? template.variables : 
+                  template.variables ? JSON.parse(template.variables as string) : []
+      }));
+      
+      setTemplates(transformedTemplates);
     } catch (error) {
       console.error('Error loading templates:', error);
     }
