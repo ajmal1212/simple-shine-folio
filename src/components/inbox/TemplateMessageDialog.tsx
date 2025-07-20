@@ -174,7 +174,14 @@ export const TemplateMessageDialog: React.FC<TemplateMessageDialogProps> = ({
               )}
             </div>
           )}
-          <p className="text-sm text-gray-700 whitespace-pre-wrap">{previewText}</p>
+          <div className="text-sm text-gray-700 whitespace-pre-wrap">
+            {previewText.split(/(\*\*.*?\*\*)/).map((part, index) => {
+              if (part.startsWith('**') && part.endsWith('**') && part.length > 4) {
+                return <strong key={index}>{part.slice(2, -2)}</strong>;
+              }
+              return <span key={index}>{part}</span>;
+            })}
+          </div>
           {selectedTemplateData.footer_text && (
             <p className="text-xs text-gray-500 italic">{selectedTemplateData.footer_text}</p>
           )}

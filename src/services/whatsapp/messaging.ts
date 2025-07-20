@@ -1,41 +1,48 @@
 
 import { whatsappConfig } from './config';
 
-export class WhatsAppMessaging {
-
-  async sendTextMessage(to: string, text: string): Promise<any> {
-    const settings = whatsappConfig.getSettings();
-    if (!settings) {
-      await whatsappConfig.loadSettings();
+class WhatsAppMessaging {
+  private async makeRequest(endpoint: string, data: any) {
+    const settings = await whatsappConfig.getSettings();
+    if (!settings.accessToken || !settings.phoneNumberId) {
+      throw new Error('WhatsApp settings not configured');
     }
 
-    const url = whatsappConfig.getApiUrl('messages');
-    const body = {
-      messaging_product: 'whatsapp',
-      to: to,
-      type: 'text',
-      text: { body: text }
-    };
-
-    const response = await fetch(url, {
+    const response = await fetch(`https://graph.facebook.com/v21.0/${settings.phoneNumberId}/${endpoint}`, {
       method: 'POST',
-      headers: whatsappConfig.getHeaders(),
-      body: JSON.stringify(body)
+      headers: {
+        'Authorization': `Bearer ${settings.accessToken}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(data),
     });
 
-    return await response.json();
-  }
-
-  async sendImageMessage(to: string, mediaId: string, caption?: string): Promise<any> {
-    const settings = whatsappConfig.getSettings();
-    if (!settings) {
-      await whatsappConfig.loadSettings();
+    if (!response.ok) {
+      const errorData = await response.json();
+      console.error('WhatsApp API Error:', errorData);
+      throw new Error(`WhatsApp API Error: ${errorData.error?.message || 'Unknown error'}`);
     }
 
-    const url = whatsappConfig.getApiUrl('messages');
-    const body = {
+    return response.json();
+  }
+
+  async sendTextMessage(to: string, text: string) {
+    const data = {
       messaging_product: 'whatsapp',
-      to: to,
+      to: to.replace(/\D/g, ''), // Remove non-digits
+      type: 'text',
+      text: {
+        body: text
+      }
+    };
+
+    return this.makeRequest('messages', data);
+  }
+
+  async sendImageMessage(to: string, mediaId: string, caption?: string) {
+    const data = {
+      messaging_product: 'whatsapp',
+      to: to.replace(/\D/g, ''),
       type: 'image',
       image: {
         id: mediaId,
@@ -43,52 +50,28 @@ export class WhatsAppMessaging {
       }
     };
 
-    const response = await fetch(url, {
-      method: 'POST',
-      headers: whatsappConfig.getHeaders(),
-      body: JSON.stringify(body)
-    });
-
-    return await response.json();
+    return this.makeRequest('messages', data);
   }
 
-  async sendDocumentMessage(to: string, mediaId: string, filename: string, caption?: string): Promise<any> {
-    const settings = whatsappConfig.getSettings();
-    if (!settings) {
-      await whatsappConfig.loadSettings();
-    }
-
-    const url = whatsappConfig.getApiUrl('messages');
-    const body = {
+  async sendDocumentMessage(to: string, mediaId: string, filename: string, caption?: string) {
+    const data = {
       messaging_product: 'whatsapp',
-      to: to,
+      to: to.replace(/\D/g, ''),
       type: 'document',
       document: {
         id: mediaId,
-        filename: filename,
+        filename,
         ...(caption && { caption })
       }
     };
 
-    const response = await fetch(url, {
-      method: 'POST',
-      headers: whatsappConfig.getHeaders(),
-      body: JSON.stringify(body)
-    });
-
-    return await response.json();
+    return this.makeRequest('messages', data);
   }
 
-  async sendVideoMessage(to: string, mediaId: string, caption?: string): Promise<any> {
-    const settings = whatsappConfig.getSettings();
-    if (!settings) {
-      await whatsappConfig.loadSettings();
-    }
-
-    const url = whatsappConfig.getApiUrl('messages');
-    const body = {
+  async sendVideoMessage(to: string, mediaId: string, caption?: string) {
+    const data = {
       messaging_product: 'whatsapp',
-      to: to,
+      to: to.replace(/\D/g, ''),
       type: 'video',
       video: {
         id: mediaId,
@@ -96,172 +79,110 @@ export class WhatsAppMessaging {
       }
     };
 
-    const response = await fetch(url, {
-      method: 'POST',
-      headers: whatsappConfig.getHeaders(),
-      body: JSON.stringify(body)
-    });
-
-    return await response.json();
+    return this.makeRequest('messages', data);
   }
 
-  async sendAudioMessage(to: string, mediaId: string): Promise<any> {
-    const settings = whatsappConfig.getSettings();
-    if (!settings) {
-      await whatsappConfig.loadSettings();
-    }
-
-    const url = whatsappConfig.getApiUrl('messages');
-    const body = {
+  async sendAudioMessage(to: string, mediaId: string) {
+    const data = {
       messaging_product: 'whatsapp',
-      to: to,
+      to: to.replace(/\D/g, ''),
       type: 'audio',
       audio: {
         id: mediaId
       }
     };
 
-    const response = await fetch(url, {
-      method: 'POST',
-      headers: whatsappConfig.getHeaders(),
-      body: JSON.stringify(body)
-    });
-
-    return await response.json();
+    return this.makeRequest('messages', data);
   }
 
-  async sendButtonMessage(to: string, text: string, buttons: Array<{id: string, title: string}>): Promise<any> {
-    const settings = whatsappConfig.getSettings();
-    if (!settings) {
-      await whatsappConfig.loadSettings();
+  async sendTemplateMessage(to: string, templateName: string, language: string = 'en', headerMediaUrl?: string, variables?: string[]) {
+    console.log('📤 Sending individual template message:', { to, templateName, language, variables, headerMediaUrl });
+    
+    const templatePayload: any = {
+      messaging_product: 'whatsapp',
+      to: to.replace(/\D/g, ''),
+      type: 'template',
+      template: {
+        name: templateName,
+        language: {
+          code: language
+        }
+      }
+    };
+
+    // Add components if we have variables or header media
+    if (variables?.length || headerMediaUrl) {
+      templatePayload.template.components = [];
+
+      // Add header component if media is provided
+      if (headerMediaUrl) {
+        let headerType = 'image'; // default
+        if (headerMediaUrl.includes('.mp4') || headerMediaUrl.includes('video')) {
+          headerType = 'video';
+        } else if (headerMediaUrl.includes('.pdf') || headerMediaUrl.includes('document')) {
+          headerType = 'document';
+        }
+
+        templatePayload.template.components.push({
+          type: 'header',
+          parameters: [{
+            type: headerType,
+            [headerType]: {
+              id: headerMediaUrl
+            }
+          }]
+        });
+      }
+
+      // Add body component if variables are provided
+      if (variables?.length) {
+        templatePayload.template.components.push({
+          type: 'body',
+          parameters: variables.map(variable => ({
+            type: 'text',
+            text: variable
+          }))
+        });
+      }
     }
 
-    const url = whatsappConfig.getApiUrl('messages');
-    const body = {
+    console.log('📤 Template payload:', JSON.stringify(templatePayload, null, 2));
+    return this.makeRequest('messages', templatePayload);
+  }
+
+  async sendTemplate(to: string, templateData: any) {
+    return this.sendTemplateMessage(
+      to,
+      templateData.name,
+      templateData.language || 'en',
+      templateData.headerMediaUrl,
+      templateData.variables
+    );
+  }
+
+  async sendButtonMessage(to: string, text: string, buttons: Array<{id: string, title: string}>) {
+    const data = {
       messaging_product: 'whatsapp',
-      to: to,
+      to: to.replace(/\D/g, ''),
       type: 'interactive',
       interactive: {
         type: 'button',
-        body: { text },
+        body: {
+          text: text
+        },
         action: {
-          buttons: buttons.map(btn => ({
+          buttons: buttons.slice(0, 3).map((button, index) => ({
             type: 'reply',
             reply: {
-              id: btn.id,
-              title: btn.title
+              id: button.id,
+              title: button.title.substring(0, 20) // WhatsApp limit
             }
           }))
         }
       }
     };
 
-    const response = await fetch(url, {
-      method: 'POST',
-      headers: whatsappConfig.getHeaders(),
-      body: JSON.stringify(body)
-    });
-
-    return await response.json();
-  }
-
-  async sendTemplateMessage(to: string, templateName: string, language: string = 'en', headerMediaUrl?: string, variables?: string[]): Promise<any> {
-    const settings = whatsappConfig.getSettings();
-    if (!settings) {
-      await whatsappConfig.loadSettings();
-    }
-
-    const url = whatsappConfig.getApiUrl('messages');
-    
-    const templateComponents: any[] = [];
-
-    // Add header component with media if provided
-    if (headerMediaUrl) {
-      templateComponents.push({
-        type: "header",
-        parameters: [
-          {
-            type: "image",
-            image: {
-              link: headerMediaUrl
-            }
-          }
-        ]
-      });
-    }
-
-    // Add body parameters if variables are provided
-    if (variables && variables.length > 0) {
-      templateComponents.push({
-        type: "body",
-        parameters: variables.map(variable => ({
-          type: "text",
-          text: variable
-        }))
-      });
-    }
-
-    const body = {
-      messaging_product: 'whatsapp',
-      to: to,
-      type: 'template',
-      template: {
-        name: templateName,
-        language: { code: language },
-        ...(templateComponents.length > 0 && { components: templateComponents })
-      }
-    };
-
-    console.log('Sending template message:', JSON.stringify(body, null, 2));
-
-    const response = await fetch(url, {
-      method: 'POST',
-      headers: whatsappConfig.getHeaders(),
-      body: JSON.stringify(body)
-    });
-
-    const result = await response.json();
-    
-    if (result.error) {
-      console.error('Template send error:', result.error);
-      throw new Error(`Failed to send template: ${result.error.message}`);
-    }
-
-    return result;
-  }
-
-  async sendTemplate(to: string, templateData: any): Promise<any> {
-    const settings = whatsappConfig.getSettings();
-    if (!settings) {
-      await whatsappConfig.loadSettings();
-    }
-
-    const url = whatsappConfig.getApiUrl('messages');
-    const body = {
-      messaging_product: 'whatsapp',
-      to: to,
-      type: 'template',
-      template: templateData
-    };
-
-    console.log('Sending template to:', to);
-    console.log('Template data:', JSON.stringify(templateData, null, 2));
-
-    const response = await fetch(url, {
-      method: 'POST',
-      headers: whatsappConfig.getHeaders(),
-      body: JSON.stringify(body)
-    });
-
-    const result = await response.json();
-    console.log('Send template response:', result);
-    
-    if (result.error) {
-      console.error('Template send error:', result.error);
-      throw new Error(`Failed to send template: ${result.error.message}`);
-    }
-
-    return result;
+    return this.makeRequest('messages', data);
   }
 }
 

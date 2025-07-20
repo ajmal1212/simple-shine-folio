@@ -14,7 +14,7 @@ const formatBoldText = (text: string) => {
       const boldText = part.slice(2, -2);
       return <strong key={index}>{boldText}</strong>;
     }
-    return part;
+    return <span key={index}>{part}</span>;
   });
 };
 
@@ -23,11 +23,24 @@ const formatTextWithLineBreaks = (text: string) => {
   const lines = text.split(/\r?\n/);
   
   return lines.map((line, index) => (
-    <React.Fragment key={index}>
+    <span key={index}>
       {formatBoldText(line)}
       {index < lines.length - 1 && <br />}
-    </React.Fragment>
+    </span>
   ));
+};
+
+const processTemplateVariables = (text: string, variables?: string[]) => {
+  if (!variables || variables.length === 0) return text;
+  
+  let processedText = text;
+  variables.forEach((variable, index) => {
+    const placeholder = `{{${index + 1}}}`;
+    const regex = new RegExp(placeholder.replace(/[{}]/g, '\\$&'), 'g');
+    processedText = processedText.replace(regex, variable);
+  });
+  
+  return processedText;
 };
 
 export const formatMessageContent = (message: Message) => {
@@ -35,8 +48,28 @@ export const formatMessageContent = (message: Message) => {
     const textContent = message.content.text || 'Text message';
     return <span className="whitespace-pre-wrap">{formatTextWithLineBreaks(textContent)}</span>;
   } else if (message.message_type === 'template') {
-    const templateContent = message.content.body_text || 'Template message';
-    return <span className="whitespace-pre-wrap">{formatTextWithLineBreaks(templateContent)}</span>;
+    // Process template with variables
+    let templateContent = message.content.body_text || 'Template message';
+    
+    // Replace variables if they exist
+    if (message.content.variables && Array.isArray(message.content.variables)) {
+      templateContent = processTemplateVariables(templateContent, message.content.variables);
+    }
+    
+    return (
+      <div className="space-y-3">
+        {/* Header Media */}
+        {message.content.header_media_url && (
+          <img 
+            src={message.content.header_media_url} 
+            alt="Template Header" 
+            className="max-w-xs rounded-xl shadow-sm border"
+          />
+        )}
+        {/* Template Body */}
+        <span className="whitespace-pre-wrap">{formatTextWithLineBreaks(templateContent)}</span>
+      </div>
+    );
   } else if (message.message_type === 'image') {
     return (
       <div className="space-y-3">

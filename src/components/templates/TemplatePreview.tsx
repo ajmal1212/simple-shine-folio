@@ -24,17 +24,19 @@ interface TemplateData {
 
 interface TemplatePreviewProps {
   template: TemplateData;
+  variableValues?: string[];
 }
 
-export const TemplatePreview: React.FC<TemplatePreviewProps> = ({ template }) => {
-  const renderBodyWithVariables = (bodyText: string, variables: Array<{ name: string; sample: string }>) => {
+export const TemplatePreview: React.FC<TemplatePreviewProps> = ({ template, variableValues = [] }) => {
+  const renderBodyWithVariables = (bodyText: string, variables: Array<{ name: string; sample: string }>, values: string[] = []) => {
     let processedText = bodyText;
     
-    // Replace variables with their sample values
+    // Replace variables with their values or sample values
     variables.forEach((variable, index) => {
       const placeholder = `{{${index + 1}}}`;
       const regex = new RegExp(placeholder.replace(/[{}]/g, '\\$&'), 'g');
-      processedText = processedText.replace(regex, variable.sample || `{{${variable.name}}}`);
+      const replacement = values[index] || variable.sample || `{{${variable.name}}}`;
+      processedText = processedText.replace(regex, replacement);
     });
     
     // Convert **text** to bold
@@ -43,7 +45,11 @@ export const TemplatePreview: React.FC<TemplatePreviewProps> = ({ template }) =>
     return processedText;
   };
 
-  const processedBodyText = renderBodyWithVariables(template.body_text || 'Your message will appear here...', template.variables || []);
+  const processedBodyText = renderBodyWithVariables(
+    template.body_text || 'Your message will appear here...', 
+    template.variables || [], 
+    variableValues
+  );
 
   const getButtonIcon = (type: string) => {
     switch (type) {
