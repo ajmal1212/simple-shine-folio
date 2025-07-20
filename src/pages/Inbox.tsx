@@ -23,6 +23,7 @@ const Inbox = () => {
     loadTemplates,
     sendMessage,
     sendTemplate,
+    sendTemplateWithVariables,
   } = useInboxData();
 
   useInboxRealtime({
@@ -53,6 +54,10 @@ const Inbox = () => {
     await sendTemplate(selectedTemplate);
     setIsTemplateDialogOpen(false);
     setSelectedTemplate('');
+  };
+
+  const handleSendTemplateWithVariables = async (templateId: string, variables?: string[], headerMedia?: File) => {
+    await sendTemplateWithVariables(templateId, variables, headerMedia);
   };
 
   const handleMessageSent = () => {
@@ -89,6 +94,7 @@ const Inbox = () => {
           onSendTemplate={handleSendTemplate}
           onTemplateDialogOpenChange={setIsTemplateDialogOpen}
           onMessageSent={handleMessageSent}
+          onSendTemplateWithVariables={handleSendTemplateWithVariables}
         />
       </div>
     </DashboardLayout>

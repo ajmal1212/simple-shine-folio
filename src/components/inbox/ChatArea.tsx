@@ -1,14 +1,13 @@
 
-import React, { useEffect, useRef } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { FileText, Archive, Tag, Send, MessageSquare } from 'lucide-react';
 import { Textarea } from '@/components/ui/textarea';
 import { Button } from '@/components/ui/button';
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { MediaUpload } from '@/components/inbox/MediaUpload';
 import { MessageStatusIcon } from '@/components/inbox/MessageStatusIcon';
 import { EmojiPickerComponent } from '@/components/inbox/EmojiPicker';
+import { TemplateMessageDialog } from '@/components/inbox/TemplateMessageDialog';
 import { Contact, Message, Template } from '@/types/inbox';
 import { formatMessageContent } from '@/utils/messageUtils';
 
@@ -90,6 +89,14 @@ export const ChatArea: React.FC<ChatAreaProps> = ({
     }
   };
 
+  const handleSendTemplateMessage = async (templateId: string, variables?: string[], headerMedia?: File) => {
+    // This will be handled by the parent component through a new prop
+    if (onSendTemplateWithVariables) {
+      await onSendTemplateWithVariables(templateId, variables, headerMedia);
+      onMessageSent();
+    }
+  };
+
   if (!selectedContact) {
     return (
       <div className="flex-1 flex items-center justify-center bg-gradient-to-br from-gray-50 to-white">
@@ -120,56 +127,13 @@ export const ChatArea: React.FC<ChatAreaProps> = ({
           </div>
           
           <div className="flex items-center space-x-2">
-            <Dialog open={isTemplateDialogOpen} onOpenChange={onTemplateDialogOpenChange}>
-              <DialogTrigger asChild>
-                <Button variant="ghost" size="sm">
-                  <FileText className="w-4 h-4" />
-                </Button>
-              </DialogTrigger>
-              <DialogContent>
-                <DialogHeader>
-                  <DialogTitle>Send Template Message</DialogTitle>
-                  <DialogDescription>
-                    Choose a template to send to {selectedContact.name || selectedContact.phone_number}
-                  </DialogDescription>
-                </DialogHeader>
-                
-                <div className="space-y-4">
-                  <div>
-                    <Select value={selectedTemplate} onValueChange={onTemplateSelect}>
-                      <SelectTrigger>
-                        <SelectValue placeholder="Select a template" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {templates.map((template) => (
-                          <SelectItem key={template.id} value={template.id}>
-                            {template.name}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  
-                  {selectedTemplate && (
-                    <div className="p-3 bg-gray-50 rounded">
-                      <h4 className="font-medium mb-2">Preview:</h4>
-                      <p className="text-sm text-gray-700">
-                        {templates.find(t => t.id === selectedTemplate)?.body_text}
-                      </p>
-                    </div>
-                  )}
-                  
-                  <div className="flex gap-2">
-                    <Button onClick={onSendTemplate} disabled={!selectedTemplate} className="whatsapp-green hover:bg-green-600">
-                      Send Template
-                    </Button>
-                    <Button variant="outline" onClick={() => onTemplateDialogOpenChange(false)}>
-                      Cancel
-                    </Button>
-                  </div>
-                </div>
-              </DialogContent>
-            </Dialog>
+            <Button 
+              variant="ghost" 
+              size="sm"
+              onClick={() => onTemplateDialogOpenChange(true)}
+            >
+              <FileText className="w-4 h-4" />
+            </Button>
             
             <Button variant="ghost" size="sm">
               <Archive className="w-4 h-4" />
@@ -243,6 +207,16 @@ export const ChatArea: React.FC<ChatAreaProps> = ({
           </div>
         </form>
       </div>
+
+      {/* Template Message Dialog */}
+      <TemplateMessageDialog
+        isOpen={isTemplateDialogOpen}
+        onClose={() => onTemplateDialogOpenChange(false)}
+        templates={templates}
+        contactName={selectedContact.name || selectedContact.phone_number}
+        contactPhone={selectedContact.phone_number}
+        onSendTemplate={handleSendTemplateMessage}
+      />
     </div>
   );
 };

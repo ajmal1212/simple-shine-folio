@@ -70,7 +70,7 @@ export const useInboxData = () => {
     try {
       const { data, error } = await supabase
         .from('whatsapp_templates')
-        .select('id, name, body_text, language')
+        .select('id, name, body_text, language, header_type, header_content, footer_text, buttons, variables')
         .eq('status', 'APPROVED')
         .order('name');
 
@@ -179,6 +179,82 @@ export const useInboxData = () => {
     }
   };
 
+  const sendTemplateWithVariables = async (templateId: string, variables?: string[], headerMedia?: File) => {
+    if (!templateId || !selectedConversation) return;
+
+    try {
+      const conversation = conversations.find(c => c.id === selectedConversation);
+      const template = templates.find(t => t.id === templateId);
+      
+      if (!conversation || !template) return;
+
+      console.log('📤 Sending template with variables:', { templateId, variables, hasMedia: !!headerMedia });
+
+      let headerMediaUrl: string | undefined;
+      
+      // Upload header media if provided
+      if (headerMedia) {
+        try {
+          const mediaId = await whatsappApi.uploadMedia(headerMedia, 
+            headerMedia.type.startsWith('image/') ? 'image' :
+            headerMedia.type.startsWith('video/') ? 'video' : 'document'
+          );
+          
+          // For template messages, we need to use the media URL format
+          headerMediaUrl = `https://graph.facebook.com/v21.0/${mediaId}`;
+        } catch (uploadError) {
+          console.error('Failed to upload header media:', uploadError);
+          throw new Error('Failed to upload header media');
+        }
+      }
+
+      // Send template via WhatsApp API with variables and media
+      const response = await whatsappApi.sendTemplateMessage(
+        conversation.contact.phone_number,
+        template.name,
+        template.language,
+        headerMediaUrl,
+        variables
+      );
+
+      if (response.messages && response.messages[0]) {
+        // Store in database
+        const { error } = await supabase
+          .from('messages')
+          .insert({
+            conversation_id: selectedConversation,
+            whatsapp_message_id: response.messages[0].id,
+            sender_type: 'user',
+            message_type: 'template',
+            content: { 
+              template_name: template.name, 
+              body_text: template.body_text,
+              variables: variables,
+              header_media_url: headerMediaUrl
+            },
+            status: 'sent',
+            timestamp: new Date().toISOString()
+          });
+
+        if (error) throw error;
+
+        console.log('✅ Template message sent and stored');
+        loadMessages(selectedConversation);
+        loadConversations();
+      } else {
+        throw new Error('Failed to send template');
+      }
+    } catch (error) {
+      console.error('❌ Error sending template with variables:', error);
+      toast({
+        title: "Error",
+        description: "Failed to send template message",
+        variant: "destructive"
+      });
+      throw error;
+    }
+  };
+
   return {
     conversations,
     messages,
@@ -190,5 +266,6 @@ export const useInboxData = () => {
     loadTemplates,
     sendMessage,
     sendTemplate,
+    sendTemplateWithVariables,
   };
 };

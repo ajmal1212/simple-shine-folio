@@ -64,7 +64,7 @@ serve(async (req) => {
     }
 
     if (action === 'uploadFileContent') {
-      // Upload file content
+      // Upload file content with proper error handling
       const binaryData = Uint8Array.from(atob(fileData), c => c.charCodeAt(0));
       
       const response = await fetch(`https://graph.facebook.com/v21.0/${uploadSessionId}`, {
