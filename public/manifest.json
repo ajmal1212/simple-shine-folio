@@ -2,15 +2,48 @@
 {
   "name": "ChatFlow360 - WhatsApp Business Platform",
   "short_name": "ChatFlow360",
-  "description": "Professional WhatsApp Business API platform for customer engagement",
+  "description": "Professional WhatsApp Business API platform for customer engagement and automation",
   "start_url": "/",
   "display": "standalone",
+  "display_override": ["window-controls-overlay", "standalone"],
   "background_color": "#ffffff",
   "theme_color": "#25D366",
   "orientation": "portrait-primary",
   "scope": "/",
-  "lang": "en",
-  "categories": ["business", "productivity", "communication"],
+  "lang": "en-US",
+  "categories": ["business", "productivity", "communication", "social"],
+  "shortcuts": [
+    {
+      "name": "Dashboard",
+      "short_name": "Dashboard",
+      "description": "View main dashboard",
+      "url": "/dashboard",
+      "icons": [{ "src": "/icons/icon-192x192.png", "sizes": "192x192" }]
+    },
+    {
+      "name": "Inbox",
+      "short_name": "Inbox",
+      "description": "View conversations",
+      "url": "/inbox",
+      "icons": [{ "src": "/icons/icon-192x192.png", "sizes": "192x192" }]
+    },
+    {
+      "name": "Contacts",
+      "short_name": "Contacts",
+      "description": "Manage contacts",
+      "url": "/contacts",
+      "icons": [{ "src": "/icons/icon-192x192.png", "sizes": "192x192" }]
+    }
+  ],
+  "screenshots": [
+    {
+      "src": "/icons/icon-512x512.png",
+      "type": "image/png",
+      "sizes": "512x512",
+      "form_factor": "wide",
+      "label": "ChatFlow360 Dashboard"
+    }
+  ],
   "icons": [
     {
       "src": "/icons/icon-72x72.png",

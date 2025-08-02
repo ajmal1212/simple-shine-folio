@@ -5,7 +5,8 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>ChatFlow360 - WhatsApp Business Platform</title>
-    <meta name="description" content="Professional WhatsApp Business API platform for customer engagement" />
+    <meta name="description" content="Professional WhatsApp Business API platform for customer engagement and automation" />
+    <meta name="keywords" content="WhatsApp Business, API, messaging, automation, customer engagement" />
     <meta name="author" content="ChatFlow360" />
 
     <!-- PWA Configuration -->
@@ -15,8 +16,16 @@
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-status-bar-style" content="default" />
     <meta name="apple-mobile-web-app-title" content="ChatFlow360" />
+    <meta name="msapplication-TileColor" content="#25D366" />
+    <meta name="msapplication-TileImage" content="/icons/icon-144x144.png" />
     
-    <!-- Icons for iOS -->
+    <!-- Preconnect for performance -->
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    
+    <!-- Icons for iOS and Android -->
+    <link rel="icon" type="image/png" sizes="32x32" href="/icons/icon-72x72.png" />
+    <link rel="icon" type="image/png" sizes="16x16" href="/icons/icon-72x72.png" />
     <link rel="apple-touch-icon" sizes="72x72" href="/icons/icon-72x72.png" />
     <link rel="apple-touch-icon" sizes="96x96" href="/icons/icon-96x96.png" />
     <link rel="apple-touch-icon" sizes="128x128" href="/icons/icon-128x128.png" />
@@ -26,31 +35,52 @@
     <link rel="apple-touch-icon" sizes="384x384" href="/icons/icon-384x384.png" />
     <link rel="apple-touch-icon" sizes="512x512" href="/icons/icon-512x512.png" />
 
+    <!-- Open Graph -->
     <meta property="og:title" content="ChatFlow360 - WhatsApp Business Platform" />
-    <meta property="og:description" content="Professional WhatsApp Business API platform for customer engagement" />
+    <meta property="og:description" content="Professional WhatsApp Business API platform for customer engagement and automation" />
     <meta property="og:type" content="website" />
-    <meta property="og:image" content="https://lovable.dev/opengraph-image-p98pqg.png" />
+    <meta property="og:url" content="https://chatflow360.com" />
+    <meta property="og:image" content="/icons/icon-512x512.png" />
 
+    <!-- Twitter Card -->
     <meta name="twitter:card" content="summary_large_image" />
     <meta name="twitter:site" content="@chatflow360" />
-    <meta name="twitter:image" content="https://lovable.dev/opengraph-image-p98pqg.png" />
+    <meta name="twitter:title" content="ChatFlow360 - WhatsApp Business Platform" />
+    <meta name="twitter:description" content="Professional WhatsApp Business API platform for customer engagement and automation" />
+    <meta name="twitter:image" content="/icons/icon-512x512.png" />
   </head>
 
   <body>
+    <noscript>You need to enable JavaScript to run this app.</noscript>
     <div id="root"></div>
     <script type="module" src="/src/main.tsx"></script>
     
-    <!-- Service Worker Registration -->
+    <!-- Service Worker Registration with better error handling -->
     <script>
       if ('serviceWorker' in navigator) {
         window.addEventListener('load', function() {
-          navigator.serviceWorker.register('/sw.js')
-            .then(function(registration) {
-              console.log('ServiceWorker registration successful with scope: ', registration.scope);
-            }, function(err) {
-              console.log('ServiceWorker registration failed: ', err);
+          navigator.serviceWorker.register('/sw.js', {
+            scope: '/'
+          })
+          .then(function(registration) {
+            console.log('ServiceWorker registration successful with scope: ', registration.scope);
+            
+            // Check for updates
+            registration.addEventListener('updatefound', () => {
+              const newWorker = registration.installing;
+              newWorker.addEventListener('statechange', () => {
+                if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
+                  console.log('New service worker available');
+                }
+              });
             });
+          })
+          .catch(function(err) {
+            console.log('ServiceWorker registration failed: ', err);
+          });
         });
+      } else {
+        console.log('Service Worker is not supported by this browser.');
       }
     </script>
   </body>
