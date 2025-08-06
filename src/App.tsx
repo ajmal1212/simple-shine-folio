@@ -1,4 +1,5 @@
 
+import React from 'react';
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -139,18 +140,20 @@ const AppRoutes = () => {
   );
 };
 
-const App = () => (
-  <QueryClientProvider client={queryClient}>
-    <TooltipProvider>
-      <Toaster />
-      <Sonner />
-      <AuthProvider>
-        <BrowserRouter>
-          <AppRoutes />
-        </BrowserRouter>
-      </AuthProvider>
-    </TooltipProvider>
-  </QueryClientProvider>
+const App: React.FC = () => (
+  <React.StrictMode>
+    <QueryClientProvider client={queryClient}>
+      <TooltipProvider>
+        <Toaster />
+        <Sonner />
+        <AuthProvider>
+          <BrowserRouter>
+            <AppRoutes />
+          </BrowserRouter>
+        </AuthProvider>
+      </TooltipProvider>
+    </QueryClientProvider>
+  </React.StrictMode>
 );
 
 export default App;
