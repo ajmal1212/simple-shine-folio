@@ -2,7 +2,7 @@
 import React from 'react';
 import { Paperclip, Image, FileText, Video, Mic } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
+// import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 
 interface MediaUploadDropdownProps {
   onFileTypeSelect: (accept: string) => void;
@@ -43,30 +43,13 @@ export const MediaUploadDropdown: React.FC<MediaUploadDropdownProps> = ({ onFile
   ];
 
   return (
-    <DropdownMenu>
-      <DropdownMenuTrigger asChild>
-        <Button
-          variant="ghost"
-          size="sm"
-          className="h-10 w-10 p-0 text-gray-500 hover:text-gray-700"
-        >
-          <Paperclip className="w-5 h-5" />
-        </Button>
-      </DropdownMenuTrigger>
-      <DropdownMenuContent side="top" align="start" className="w-48">
-        {mediaOptions.map((option) => (
-          <DropdownMenuItem 
-            key={option.label}
-            onClick={() => onFileTypeSelect(option.accept)}
-            className="flex items-center space-x-3 p-3 cursor-pointer hover:bg-gray-50"
-          >
-            <div className={`w-8 h-8 ${option.bgColor} rounded-full flex items-center justify-center`}>
-              {option.icon}
-            </div>
-            <span className="text-gray-700">{option.label}</span>
-          </DropdownMenuItem>
-        ))}
-      </DropdownMenuContent>
-    </DropdownMenu>
+    <Button
+      variant="ghost"
+      size="sm"
+      className="h-10 w-10 p-0 text-gray-500 hover:text-gray-700"
+      onClick={() => onFileTypeSelect('*/*')}
+    >
+      <Paperclip className="w-5 h-5" />
+    </Button>
   );
 };
