@@ -17,6 +17,8 @@ import Flows from "./pages/Flows";
 import ChatbotBuilder from "./pages/ChatbotBuilder";
 import NotFound from "./pages/NotFound";
 
+console.log('App.tsx loading...');
+
 const queryClient = new QueryClient();
 
 const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
@@ -137,8 +139,10 @@ const AppRoutes = () => {
   );
 };
 
-const App: React.FC = () => (
-  <React.StrictMode>
+const App: React.FC = () => {
+  console.log('App component rendering...');
+  
+  return (
     <QueryClientProvider client={queryClient}>
       <AuthProvider>
         <BrowserRouter>
@@ -146,7 +150,7 @@ const App: React.FC = () => (
         </BrowserRouter>
       </AuthProvider>
     </QueryClientProvider>
-  </React.StrictMode>
-);
+  );
+};
 
 export default App;
