@@ -138,13 +138,15 @@ const AppRoutes = () => {
 };
 
 const App: React.FC = () => (
-  <QueryClientProvider client={queryClient}>
-    <AuthProvider>
-      <BrowserRouter>
-        <AppRoutes />
-      </BrowserRouter>
-    </AuthProvider>
-  </QueryClientProvider>
+  <React.StrictMode>
+    <QueryClientProvider client={queryClient}>
+      <AuthProvider>
+        <BrowserRouter>
+          <AppRoutes />
+        </BrowserRouter>
+      </AuthProvider>
+    </QueryClientProvider>
+  </React.StrictMode>
 );
 
 export default App;
