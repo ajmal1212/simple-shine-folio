@@ -4,15 +4,6 @@ import { whatsappMediaUpload } from './whatsapp/mediaUpload';
 import { whatsappMessaging } from './whatsapp/messaging';
 import { whatsappTemplates } from './whatsapp/templates';
 
-export interface WhatsAppSettings {
-  phone_number_id: string;
-  access_token: string;
-  app_id: string;
-  waba_id: string;
-  graph_api_base_url: string;
-  api_version: string;
-}
-
 export class WhatsAppAPI {
   
   async loadSettings(): Promise<boolean> {
