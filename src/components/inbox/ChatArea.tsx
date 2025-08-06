@@ -3,7 +3,7 @@ import React, { useEffect, useRef, useState } from 'react';
 import { FileText, Archive, Tag, Send, MessageSquare } from 'lucide-react';
 import { Textarea } from '@/components/ui/textarea';
 import { Button } from '@/components/ui/button';
-import { ScrollArea } from '@/components/ui/scroll-area';
+// import { ScrollArea } from '@/components/ui/scroll-area';
 import { MediaUpload } from '@/components/inbox/MediaUpload';
 import { MessageStatusIcon } from '@/components/inbox/MessageStatusIcon';
 import { EmojiPickerComponent } from '@/components/inbox/EmojiPicker';
@@ -147,7 +147,7 @@ export const ChatArea: React.FC<ChatAreaProps> = ({
       </div>
 
       {/* Messages */}
-      <ScrollArea className="flex-1" ref={scrollAreaRef}>
+      <div className="flex-1 overflow-y-auto" ref={scrollAreaRef}>
         <div className="p-2 bg-gradient-to-b from-gray-50/50 to-white space-y-1">
           {messages.length === 0 ? (
             <div className="text-center text-gray-500 py-8">
@@ -181,7 +181,7 @@ export const ChatArea: React.FC<ChatAreaProps> = ({
           )}
           <div ref={messagesEndRef} />
         </div>
-      </ScrollArea>
+      </div>
 
       {/* Message Input */}
       <div className="p-4 bg-white border-t border-gray-100">
