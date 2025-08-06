@@ -3,19 +3,15 @@ import { whatsappConfig } from './config';
 
 class WhatsAppMessaging {
   private async makeRequest(endpoint: string, data: any) {
-    const settings = whatsappConfig.getSettings();
-    if (!settings) {
-      throw new Error('WhatsApp settings not loaded. Please call loadSettings() first.');
-    }
-
-    if (!settings.access_token || !settings.phone_number_id) {
+    const settings = await whatsappConfig.getSettings();
+    if (!settings.accessToken || !settings.phoneNumberId) {
       throw new Error('WhatsApp settings not configured');
     }
 
-    const response = await fetch(`${settings.graph_api_base_url}/${settings.api_version}/${settings.phone_number_id}/${endpoint}`, {
+    const response = await fetch(`https://graph.facebook.com/v21.0/${settings.phoneNumberId}/${endpoint}`, {
       method: 'POST',
       headers: {
-        'Authorization': `Bearer ${settings.access_token}`,
+        'Authorization': `Bearer ${settings.accessToken}`,
         'Content-Type': 'application/json',
       },
       body: JSON.stringify(data),
@@ -132,7 +128,7 @@ class WhatsAppMessaging {
           parameters: [{
             type: headerType,
             [headerType]: {
-              link: headerMediaUrl
+              id: headerMediaUrl
             }
           }]
         });
@@ -190,5 +186,4 @@ class WhatsAppMessaging {
   }
 }
 
-export { WhatsAppMessaging };
 export const whatsappMessaging = new WhatsAppMessaging();

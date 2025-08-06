@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { ArrowLeft, ArrowRight, Upload, FileText, Send, Image } from 'lucide-react';
@@ -10,7 +9,6 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Textarea } from '@/components/ui/textarea';
 import { DashboardLayout } from '@/components/layout/DashboardLayout';
 import { ContactsDataTable } from '@/components/campaigns/ContactsDataTable';
-import { CampaignScheduler } from '@/components/campaigns/CampaignScheduler';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { WhatsAppAPI } from '@/services/whatsappApi';
@@ -262,119 +260,80 @@ const CreateCampaign = () => {
     }
   };
 
-  const createCampaign = async (scheduledDate?: Date) => {
+  const createCampaign = async () => {
     if (!selectedTemplate) return;
 
     setLoading(true);
     try {
-      // First, ensure WhatsApp settings are loaded
       const whatsappApi = new WhatsAppAPI();
-      const settingsLoaded = await whatsappApi.loadSettings();
-      
-      if (!settingsLoaded) {
-        toast({
-          title: "Error",
-          description: "WhatsApp settings not configured. Please check your WhatsApp integration.",
-          variant: "destructive",
-        });
-        return;
-      }
 
-      if (scheduledDate) {
-        // Save as scheduled campaign
-        const { data, error } = await supabase
-          .from('campaigns')
-          .insert([
-            {
-              name: campaignName,
-              template_name: selectedTemplate?.name,
-              template_id: selectedTemplate?.id,
-              recipients_count: contacts.length,
-              delivered_count: 0,
-              failed_count: 0,
-              status: 'scheduled',
-              sent_at: scheduledDate.toISOString(),
-              media_url: mediaUrl || null
+      // Send messages to all contacts
+      let successCount = 0;
+      let errorCount = 0;
+
+      for (const contact of contacts) {
+        try {
+          // Prepare template data
+          const templateData: any = {
+            name: selectedTemplate.name,
+            language: {
+              code: selectedTemplate.language
             }
-          ]);
+          };
 
-        if (error) {
-          throw error;
-        }
+          // Add components if variables exist or media is available
+          if (variables.length > 0 || (selectedTemplate.header_type === 'IMAGE' && mediaUrl)) {
+            templateData.components = [];
 
-        toast({
-          title: "Campaign Scheduled",
-          description: `Campaign scheduled for ${scheduledDate.toLocaleString()}`,
-        });
-      } else {
-        // Send messages immediately to all contacts
-        let successCount = 0;
-        let errorCount = 0;
-
-        for (const contact of contacts) {
-          try {
-            // Prepare template data
-            const templateData: any = {
-              name: selectedTemplate.name,
-              language: {
-                code: selectedTemplate.language
-              }
-            };
-
-            // Add components if variables exist or media is available
-            if (variables.length > 0 || (selectedTemplate.header_type === 'IMAGE' && mediaUrl)) {
-              templateData.components = [];
-
-              // Add header component with media URL if exists
-              if (selectedTemplate.header_type === 'IMAGE' && mediaUrl) {
-                templateData.components.push({
-                  type: 'header',
-                  parameters: [
-                    {
-                      type: 'image',
-                      image: {
-                        link: mediaUrl
-                      }
+            // Add header component with media URL if exists
+            if (selectedTemplate.header_type === 'IMAGE' && mediaUrl) {
+              templateData.components.push({
+                type: 'header',
+                parameters: [
+                  {
+                    type: 'image',
+                    image: {
+                      link: mediaUrl
                     }
-                  ]
-                });
-              }
-
-              // Add body component with variables if exists
-              if (variables.length > 0) {
-                const bodyParameters = variables.map(variable => {
-                  // Get the actual value from contact variables
-                  const actualValue = contact.variables?.[variable] || variable;
-                  return {
-                    type: 'text',
-                    text: actualValue
-                  };
-                });
-
-                templateData.components.push({
-                  type: 'body',
-                  parameters: bodyParameters
-                });
-              }
+                  }
+                ]
+              });
             }
 
-            console.log(`Sending template to ${contact.phone_number}:`, templateData);
-            await whatsappApi.sendTemplate(contact.phone_number, templateData);
-            successCount++;
-          } catch (error) {
-            console.error(`Error sending to ${contact.phone_number}:`, error);
-            errorCount++;
+            // Add body component with variables if exists
+            if (variables.length > 0) {
+              const bodyParameters = variables.map(variable => {
+                // Get the actual value from contact variables
+                const actualValue = contact.variables?.[variable] || variable;
+                return {
+                  type: 'text',
+                  text: actualValue
+                };
+              });
+
+              templateData.components.push({
+                type: 'body',
+                parameters: bodyParameters
+              });
+            }
           }
+
+          console.log(`Sending template to ${contact.phone_number}:`, templateData);
+          await whatsappApi.sendTemplate(contact.phone_number, templateData);
+          successCount++;
+        } catch (error) {
+          console.error(`Error sending to ${contact.phone_number}:`, error);
+          errorCount++;
         }
-
-        // Save campaign to database
-        await saveCampaignToDatabase(successCount, errorCount);
-
-        toast({
-          title: "Campaign Completed",
-          description: `Sent to ${successCount} contacts. ${errorCount} failed.`,
-        });
       }
+
+      // Save campaign to database
+      await saveCampaignToDatabase(successCount, errorCount);
+
+      toast({
+        title: "Campaign Completed",
+        description: `Sent to ${successCount} contacts. ${errorCount} failed.`,
+      });
 
       navigate('/broadcasts');
     } catch (error) {
@@ -618,7 +577,7 @@ const CreateCampaign = () => {
                 <div className="space-y-6">
                   <div>
                     <h2 className="text-2xl font-semibold mb-2">Review & Send</h2>
-                    <p className="text-gray-600">Review your campaign details and choose when to send</p>
+                    <p className="text-gray-600">Review your campaign details before sending</p>
                   </div>
                   
                   <div className="space-y-4">
@@ -634,11 +593,12 @@ const CreateCampaign = () => {
                       </div>
                     </div>
 
-                    <CampaignScheduler
-                      onSendNow={() => createCampaign()}
-                      onSchedule={(date) => createCampaign(date)}
-                      loading={loading}
-                    />
+                    <div className="p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
+                      <h3 className="font-medium text-yellow-900 mb-2">⚠️ Important</h3>
+                      <p className="text-sm text-yellow-800">
+                        Once sent, this campaign cannot be stopped. Make sure all details are correct.
+                      </p>
+                    </div>
                   </div>
                 </div>
               )}
@@ -654,10 +614,28 @@ const CreateCampaign = () => {
                   Previous
                 </Button>
 
-                {currentStep < 4 && (
+                {currentStep < 4 ? (
                   <Button onClick={nextStep}>
                     Next
                     <ArrowRight className="w-4 h-4 ml-2" />
+                  </Button>
+                ) : (
+                  <Button 
+                    onClick={createCampaign}
+                    disabled={loading}
+                    className="whatsapp-green hover:bg-green-600"
+                  >
+                    {loading ? (
+                      <>
+                        <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2" />
+                        Sending...
+                      </>
+                    ) : (
+                      <>
+                        <Send className="w-4 h-4 mr-2" />
+                        Send Campaign
+                      </>
+                    )}
                   </Button>
                 )}
               </div>
