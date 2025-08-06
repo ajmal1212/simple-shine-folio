@@ -10,7 +10,7 @@ import { DashboardLayout } from '@/components/layout/DashboardLayout';
 import { AddContactDialog } from '@/components/contacts/AddContactDialog';
 import { EditContactDialog } from '@/components/contacts/EditContactDialog';
 import { supabase } from '@/integrations/supabase/client';
-import { useToast } from '@/hooks/use-toast';
+// import { useToast } from '@/hooks/use-toast';
 import { formatDistanceToNow } from 'date-fns';
 
 const Contacts = () => {
@@ -18,7 +18,7 @@ const Contacts = () => {
   const [contacts, setContacts] = useState([]);
   const [loading, setLoading] = useState(true);
   const [editingContact, setEditingContact] = useState(null);
-  const { toast } = useToast();
+  // const { toast } = useToast();
 
   const fetchContacts = async () => {
     try {
@@ -29,22 +29,14 @@ const Contacts = () => {
 
       if (error) {
         console.error('Error fetching contacts:', error);
-        toast({
-          title: 'Error',
-          description: 'Failed to fetch contacts',
-          variant: 'destructive',
-        });
+        console.error('Error fetching contacts:', error);
         return;
       }
 
       setContacts(data || []);
     } catch (error) {
       console.error('Error:', error);
-      toast({
-        title: 'Error',
-        description: 'An unexpected error occurred',
-        variant: 'destructive',
-      });
+      console.error('An unexpected error occurred:', error);
     } finally {
       setLoading(false);
     }
@@ -62,26 +54,15 @@ const Contacts = () => {
         .eq('id', contactId);
 
       if (error) {
-        toast({
-          title: 'Error',
-          description: 'Failed to delete contact',
-          variant: 'destructive',
-        });
+        console.error('Failed to delete contact:', error);
         return;
       }
 
-      toast({
-        title: 'Success',
-        description: 'Contact deleted successfully',
-      });
+      console.log('Contact deleted successfully');
 
       fetchContacts();
     } catch (error) {
-      toast({
-        title: 'Error',
-        description: 'An unexpected error occurred',
-        variant: 'destructive',
-      });
+      console.error('An unexpected error occurred:', error);
     }
   };
 
