@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { ArrowLeft, ArrowRight, Upload, FileText, Send, Image } from 'lucide-react';
@@ -9,6 +10,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Textarea } from '@/components/ui/textarea';
 import { DashboardLayout } from '@/components/layout/DashboardLayout';
 import { ContactsDataTable } from '@/components/campaigns/ContactsDataTable';
+import { CampaignScheduler } from '@/components/campaigns/CampaignScheduler';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { WhatsAppAPI } from '@/services/whatsappApi';
