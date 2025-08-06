@@ -1,10 +1,8 @@
 
-import { 
-  whatsappConfig, 
-  whatsappMediaUpload, 
-  whatsappMessaging, 
-  whatsappTemplates 
-} from './whatsapp';
+import { whatsappConfig } from './whatsapp/config';
+import { whatsappMediaUpload } from './whatsapp/mediaUpload';
+import { whatsappMessaging } from './whatsapp/messaging';
+import { whatsappTemplates } from './whatsapp/templates';
 
 export class WhatsAppAPI {
   
