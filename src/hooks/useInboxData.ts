@@ -1,11 +1,11 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
-import { useToast } from '@/hooks/use-toast';
+// import { useToast } from '@/hooks/use-toast';
 import { whatsappApi } from '@/services/whatsappApi';
 import { Conversation, Message, Template } from '@/types/inbox';
 
 export const useInboxData = () => {
-  const { toast } = useToast();
+  // const { toast } = useToast();
   const [conversations, setConversations] = useState<Conversation[]>([]);
   const [messages, setMessages] = useState<Message[]>([]);
   const [templates, setTemplates] = useState<Template[]>([]);
@@ -133,11 +133,6 @@ export const useInboxData = () => {
       }
     } catch (error) {
       console.error('❌ Error sending message:', error);
-      toast({
-        title: "Error",
-        description: "Failed to send message",
-        variant: "destructive"
-      });
     }
   };
 
@@ -180,11 +175,6 @@ export const useInboxData = () => {
       }
     } catch (error) {
       console.error('Error sending template:', error);
-      toast({
-        title: "Error",
-        description: "Failed to send template message",
-        variant: "destructive"
-      });
     }
   };
 
@@ -255,11 +245,6 @@ export const useInboxData = () => {
       }
     } catch (error) {
       console.error('❌ Error sending template with variables:', error);
-      toast({
-        title: "Error",
-        description: "Failed to send template message",
-        variant: "destructive"
-      });
       throw error;
     }
   };
