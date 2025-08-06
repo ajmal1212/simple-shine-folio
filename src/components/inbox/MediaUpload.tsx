@@ -1,5 +1,5 @@
 import React, { useRef, useState } from 'react';
-import { useToast } from '@/hooks/use-toast';
+// import { useToast } from '@/hooks/use-toast';
 import { whatsappApi } from '@/services/whatsappApi';
 import { supabase } from '@/integrations/supabase/client';
 import { MediaUploadDropdown } from './MediaUploadDropdown';
@@ -17,7 +17,7 @@ export const MediaUpload: React.FC<MediaUploadProps> = ({
   contactPhoneNumber,
   onMessageSent
 }) => {
-  const { toast } = useToast();
+  // const { toast } = useToast();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [mediaPreview, setMediaPreview] = useState<MediaPreview | null>(null);
@@ -30,11 +30,7 @@ export const MediaUpload: React.FC<MediaUploadProps> = ({
 
     const validation = validateFile(file);
     if (!validation.isValid) {
-      toast({
-        title: "File validation error",
-        description: validation.error,
-        variant: "destructive"
-      });
+      console.error("File validation error:", validation.error);
       return;
     }
 
@@ -134,10 +130,7 @@ export const MediaUpload: React.FC<MediaUploadProps> = ({
       setCaption('');
       onMessageSent();
 
-      toast({
-        title: "Success",
-        description: `${mediaPreview.type} uploaded successfully`,
-      });
+      console.log("Success:", `${mediaPreview.type} uploaded successfully`);
 
       // Send to WhatsApp in background
       try {
@@ -179,11 +172,7 @@ export const MediaUpload: React.FC<MediaUploadProps> = ({
 
     } catch (error) {
       console.error('Error sending media:', error);
-      toast({
-        title: "Error",
-        description: `Failed to send ${mediaPreview?.type}`,
-        variant: "destructive"
-      });
+      console.error("Error:", `Failed to send ${mediaPreview?.type}`);
     } finally {
       setIsUploading(false);
     }
