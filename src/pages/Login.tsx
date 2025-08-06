@@ -5,7 +5,7 @@ import { MessageSquare, Mail, Lock, Eye, EyeOff, User } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { useAuth } from '@/contexts/AuthContext';
-import { useToast } from '@/hooks/use-toast';
+// import { useToast } from '@/hooks/use-toast';
 
 const Login = () => {
   const [isSignUp, setIsSignUp] = useState(false);
@@ -17,17 +17,13 @@ const Login = () => {
   
   const { login, signup } = useAuth();
   const navigate = useNavigate();
-  const { toast } = useToast();
+  // const { toast } = useToast();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
     if (!email || !password || (isSignUp && !fullName)) {
-      toast({
-        title: "Error",
-        description: "Please fill in all fields",
-        variant: "destructive",
-      });
+      console.error("Please fill in all fields");
       return;
     }
 
@@ -39,10 +35,7 @@ const Login = () => {
       if (isSignUp) {
         result = await signup(email, password, fullName);
         if (!result.error) {
-          toast({
-            title: "Account created!",
-            description: "Please check your email to verify your account before signing in.",
-          });
+          console.log("Account created! Please check your email to verify your account before signing in.");
           setIsSignUp(false);
           setEmail('');
           setPassword('');
@@ -51,27 +44,16 @@ const Login = () => {
       } else {
         result = await login(email, password);
         if (!result.error) {
-          toast({
-            title: "Welcome back!",
-            description: "Successfully logged in to ChatFlow360",
-          });
+          console.log("Welcome back! Successfully logged in to ChatFlow360");
           navigate('/dashboard');
         }
       }
       
       if (result.error) {
-        toast({
-          title: isSignUp ? "Sign up failed" : "Login failed",
-          description: result.error.message || "Please try again",
-          variant: "destructive",
-        });
+        console.error(isSignUp ? "Sign up failed" : "Login failed", result.error.message || "Please try again");
       }
     } catch (error) {
-      toast({
-        title: "Error",
-        description: "An unexpected error occurred",
-        variant: "destructive",
-      });
+      console.error("An unexpected error occurred", error);
     } finally {
       setIsLoading(false);
     }
